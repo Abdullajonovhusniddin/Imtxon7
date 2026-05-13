@@ -1,37 +1,66 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import TeachersPage from './TeachersPage'
+import DynamicSubPage from './DynamicSubPage'
 
 const menuItems = [
-  { id: 'asosiy',        label: 'Asosiy',        icon: '🏠' },
-  { id: 'oquvchilar',    label: "O'qituvchilar",  icon: '👤' },
-  { id: 'sinflar',       label: 'Sinflar',        icon: '🏫' },
-  { id: 'talabalar',     label: 'Talabalar',      icon: '👨‍🎓' },
-  { id: 'sovgalar',      label: "Sovg'alar",      icon: '🎁' },
-  { id: 'boshqarish',    label: 'Boshqarish',     icon: '⚙️' },
+  { id: 'asosiy', label: 'Asosiy', icon: '🏠', path: '/dashboard' },
+  { id: 'davomad', label: 'Davomad', icon: '📅' },
+  { id: 'lidlar', label: 'Lidlar', icon: '👤', premium: true },
+  { id: 'oqituvchilar', label: "O'qituvchilar", icon: '👤', path: '/teachers' },
+  { id: 'guruhlar', label: 'Guruhlar', icon: '👥' },
+  { id: 'talabalar', label: 'Talabalar', icon: '👨‍🎓' },
+  { id: 'sovgalar', label: "Sovg'alar", icon: '🎁' },
+  { id: 'moliya', label: 'Moliya', icon: '💰', premium: true },
+  { id: 'test', label: 'Test', icon: '📝', premium: true },
+  { id: 'boshqarish', label: 'Boshqarish', icon: '⚙️', hasSubmenu: true },
+]
+
+const subMenuItems = [
+  { id: 'kurslar', label: 'Kurslar', icon: '📚' },
+  { id: 'xonalar', label: 'Xonalar', icon: '🏫' },
+  { id: 'filial', label: 'Filial', icon: '🏢' },
+  { id: 'hodimlar', label: 'Hodimlar', icon: '👥' },
+  { id: 'sabablar', label: 'Sabablar', icon: '❓' },
+  { id: 'rollar', label: 'Rollar', icon: '⚒️' },
+  { id: 'coin', label: 'Coin', icon: '🪙' },
+  { id: 'xabar', label: 'Xabar yuborish', icon: '✉️' },
+  { id: 'faq', label: 'FAQ', icon: '❓' },
+  { id: 'tekshiruv', label: 'Tekshiruv', icon: '✅' },
 ]
 
 const stats = [
-  { label: 'Sinflar',       value: '0',  icon: '🏫', color: '#7c3aed' },
-  { label: 'Fanlar',        value: '0',  icon: '📚', color: '#2563eb' },
-  { label: 'Talabalar',     value: '1',  icon: '👨‍🎓', color: '#0d9488' },
-  { label: "Sovg'alar",     value: '3',  icon: '🎁', color: '#d97706' },
-  { label: "O'qituvchilar", value: '0',  icon: '👤', color: '#db2777' },
+  { label: 'Sinflar', value: '0', icon: '🏫', color: '#7c3aed' },
+  { label: 'Fanlar', value: '0', icon: '📚', color: '#2563eb' },
+  { label: 'Talabalar', value: '1', icon: '👨‍🎓', color: '#0d9488' },
+  { label: "Sovg'alar", value: '3', icon: '🎁', color: '#d97706' },
+  { label: "O'qituvchilar", value: '0', icon: '👤', color: '#db2777' },
 ]
 
 const jadval = [
-  { kun: 'Dushanba',   fan: 'Matematika',    vaqt: '08:00 - 09:30', sinf: '9-A', ustoz: 'Yusupov A.' },
-  { kun: 'Dushanba',   fan: 'Fizika',        vaqt: '09:45 - 11:15', sinf: '10-B', ustoz: 'Karimov B.' },
-  { kun: 'Seshanba',   fan: 'Informatika',   vaqt: '08:00 - 09:30', sinf: '11-A', ustoz: 'Rahimov C.' },
-  { kun: 'Chorshanba', fan: 'Kimyo',         vaqt: '10:00 - 11:30', sinf: '9-B', ustoz: 'Nazarov D.' },
-  { kun: 'Payshanba',  fan: 'Biologiya',     vaqt: '08:00 - 09:30', sinf: '10-A', ustoz: 'Xoliqov E.' },
+  { kun: 'Dushanba', fan: 'Matematika', vaqt: '08:00 - 09:30', sinf: '9-A', ustoz: 'Yusupov A.' },
+  { kun: 'Dushanba', fan: 'Fizika', vaqt: '09:45 - 11:15', sinf: '10-B', ustoz: 'Karimov B.' },
+  { kun: 'Seshanba', fan: 'Informatika', vaqt: '08:00 - 09:30', sinf: '11-A', ustoz: 'Rahimov C.' },
+  { kun: 'Chorshanba', fan: 'Kimyo', vaqt: '10:00 - 11:30', sinf: '9-B', ustoz: 'Nazarov D.' },
+  { kun: 'Payshanba', fan: 'Biologiya', vaqt: '08:00 - 09:30', sinf: '10-A', ustoz: 'Xoliqov E.' },
 ]
 
-function DashboardPage() {
+function DashboardPage({ activePage = 'dashboard' }) {
   const navigate = useNavigate()
+  const { subId } = useParams()
   const [activeMenu, setActiveMenu] = useState('asosiy')
+  
+  useEffect(() => {
+    if (activePage === 'teachers') setActiveMenu('oqituvchilar')
+    else if (subId) setActiveMenu(subId)
+    else setActiveMenu('asosiy')
+  }, [subId, activePage])
+
   const [jadvalOpen, setJadvalOpen] = useState(false)
   const [mobileSidebar, setMobileSidebar] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
+  const [submenuOpen, setSubmenuOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleLogout = () => navigate('/')
 
@@ -44,28 +73,76 @@ function DashboardPage() {
       )}
 
       {/* ───── SIDEBAR ───── */}
-      <aside className={`db-sidebar ${mobileSidebar ? 'mobile-open' : ''}`}>
+      <aside className={`db-sidebar ${mobileSidebar ? 'mobile-open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
 
-        {/* Logo */}
+        {/* Logo & Toggle */}
         <div className="db-logo">
-          <span className="db-logo-icon">🎓</span>
-          <span className="db-logo-text">EduCoin</span>
+          <div className="db-logo-main">
+            <span className="db-logo-icon">🎓</span>
+            {!sidebarCollapsed && <span className="db-logo-text">EduNajot</span>}
+          </div>
+          <button 
+            className="db-sidebar-toggle" 
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          >
+            {sidebarCollapsed ? '→' : '←'}
+          </button>
         </div>
 
         {/* Nav */}
         <nav className="db-nav">
           {menuItems.map((item) => (
-            <button
-              key={item.id}
-              id={`nav-${item.id}`}
-              className={`db-nav-item ${activeMenu === item.id ? 'active' : ''}`}
-              onClick={() => { setActiveMenu(item.id); setMobileSidebar(false) }}
+            <div 
+              key={item.id} 
+              className="db-nav-container"
+              onMouseEnter={() => item.hasSubmenu && setSubmenuOpen(true)}
+              onMouseLeave={() => item.hasSubmenu && setSubmenuOpen(false)}
             >
-              <span className="db-nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
+              <button
+                id={`nav-${item.id}`}
+                className={`db-nav-item ${activeMenu === item.id ? 'active' : ''} ${item.premium ? 'premium' : ''}`}
+                onClick={() => {
+                  if (!item.hasSubmenu) {
+                    setActiveMenu(item.id)
+                    if (item.path) navigate(item.path)
+                  }
+                  setMobileSidebar(false)
+                }}
+              >
+                <span className="db-nav-icon">{item.icon}</span>
+                <span className="db-nav-label">{item.label}</span>
+                {item.premium && <span className="premium-crown">👑</span>}
+                {item.hasSubmenu && <span className="submenu-arrow">›</span>}
+              </button>
+
+            </div>
           ))}
         </nav>
+
+        {/* SUBMENU PANEL (Side-out) */}
+        <div className={`db-submenu-panel ${submenuOpen ? 'open' : ''}`}
+             onMouseEnter={() => setSubmenuOpen(true)}
+             onMouseLeave={() => setSubmenuOpen(false)}
+        >
+          <div className="submenu-header">Boshqaruv</div>
+          <div className="submenu-items">
+            {subMenuItems.map(sub => (
+              <button 
+                key={sub.id} 
+                className={`db-submenu-item ${activeMenu === sub.id ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveMenu(sub.id)
+                  setSubmenuOpen(false)
+                  navigate(`/dashboard/${sub.id}`)
+                }}
+              >
+                <span className="db-nav-icon">{sub.icon}</span>
+                <span>{sub.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
 
         {/* Bottom - Obuna */}
         <div className="db-obuna">
@@ -186,8 +263,14 @@ function DashboardPage() {
             </>
           )}
 
+          {/* ── TEACHERS ── */}
+          {activeMenu === 'oqituvchilar' && <TeachersPage />}
+
+          {/* ── DYNAMIC SUB PAGES ── */}
+          {subId && <DynamicSubPage id={subId} />}
+
           {/* ── BOSHQA SAHIFALAR (bo'sh) ── */}
-          {activeMenu !== 'asosiy' && (
+          {activeMenu !== 'asosiy' && activeMenu !== 'oqituvchilar' && !subId && (
             <div className="db-empty">
               <div className="db-empty-icon">
                 {menuItems.find(m => m.id === activeMenu)?.icon}
