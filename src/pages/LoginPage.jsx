@@ -4,25 +4,51 @@ import loginImg from '../assets/image.png'
 
 function LoginPage() {
   const navigate = useNavigate()
-  const [login, setLogin] = useState('')
-  const [parol, setParol] = useState('')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleKirish = (e) => {
+  const handleKirish = async (e) => {
     e.preventDefault()
     setError('')
-    if (!login || !parol) { setError('Login va parolni kiriting!'); return }
+    if (!phone || !password) { setError('Telefon va parolni kiriting!'); return }
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      if (login === 'admin' && parol === '1234') {
-        navigate('/dashboard')
+
+    try {
+      const response = await fetch('https://najot-edu.softwareengineer.uz/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password })
+      })
+
+      const data = await response.json()
+      console.log('API Status:', response.status)
+      console.log('API Data:', data)
+
+      // Agar status ok (200-299) bo'lsa kirishga ruxsat beramiz
+      if (response.ok) {
+        // Har xil API'lar har xil nom bilan token berishi mumkin
+        const token = data.token || data.access_token || data.accessToken || (data.data && data.data.token)
+        
+        if (token) {
+          localStorage.setItem('token', token)
+          localStorage.setItem('userPhone', phone)
+          console.log('Token saqlandi:', token)
+          navigate('/dashboard')
+        } else {
+          console.error('Token topilmadi! API response tarkibini tekshiring.')
+          setError("Tizimda xatolik: Token topilmadi.")
+        }
       } else {
-        setError("Login yoki parol noto'g'ri!")
+        setError(data.message || "Telefon yoki parol noto'g'ri!")
       }
-    }, 800)
+    } catch (err) {
+      setError("Server bilan aloqa uzildi. Iltimos qaytadan urinib ko'ring.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -63,13 +89,13 @@ function LoginPage() {
 
           <form onSubmit={handleKirish} className="login-form" noValidate>
             <div className="form-group">
-              <label htmlFor="login-input">Login</label>
+              <label htmlFor="login-input">Telefon</label>
               <input
                 id="login-input"
                 type="text"
-                placeholder="Loginni kiriting"
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
+                placeholder="Telefonni kiriting"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 className="form-input"
                 autoComplete="username"
               />
@@ -82,8 +108,8 @@ function LoginPage() {
                   id="parol-input"
                   type={showPass ? 'text' : 'password'}
                   placeholder="Parolni kiriting"
-                  value={parol}
-                  onChange={(e) => setParol(e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="form-input"
                   autoComplete="current-password"
                 />
@@ -119,10 +145,6 @@ function LoginPage() {
               {loading ? 'Yuklanmoqda...' : 'Kirish'}
             </button>
           </form>
-
-          <p className="hint-text">
-            💡 Login: <strong>admin</strong> | Parol: <strong>1234</strong>
-          </p>
         </div>
 
         <p className="copyright">
