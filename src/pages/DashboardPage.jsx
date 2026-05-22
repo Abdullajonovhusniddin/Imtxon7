@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { getJson, postJson } from '../api'
+import { deleteJson, getJson, postJson } from '../api'
 import { 
   LayoutDashboard, 
   Users, 
@@ -37,7 +37,8 @@ import {
   RotateCcw,
   Pencil,
   Trash2,
-  Plus
+  Plus,
+  X
 } from 'lucide-react'
 import TeachersPage from './TeachersPage'
 import StudentsPage from './StudentsPage'
@@ -66,6 +67,46 @@ const subMenuItems = [
   { id: 'tekshiruv', label: 'Tekshiruv', icon: CheckCircle },
 ]
 
+const TEACHERS_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers'
+const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
+
+const dashboardStatsConfig = [
+  { label: 'Talabalar', endpoint: '/students', icon: GraduationCap, color: '#0d9488' },
+  { label: "O'qituvchilar", endpoint: TEACHERS_API, icon: Users, color: '#db2777' },
+  { label: 'Guruhlar', endpoint: '/groups/all', icon: Home, color: '#7c3aed' },
+  { label: 'Kurslar', endpoint: COURSES_API, icon: BookOpen, color: '#2563eb' },
+  { label: "Sovg'alar", endpoint: '/gifts', icon: Gift, color: '#d97706' },
+]
+
+const getApiItems = (response) => {
+  const data = response?.data ?? response
+
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.items)) return data.items
+  if (Array.isArray(data?.results)) return data.results
+  if (Array.isArray(data?.rows)) return data.rows
+
+  return []
+}
+
+const getApiTotal = (response) => {
+  const data = response?.data ?? response
+  const total =
+    data?.total ??
+    data?.count ??
+    data?.total_count ??
+    data?.totalCount ??
+    data?.meta?.total ??
+    data?.pagination?.total
+
+  if (total !== undefined && total !== null && !Number.isNaN(Number(total))) {
+    return Number(total)
+  }
+
+  return getApiItems(response).length
+}
+
 function DashboardPage({ activePage = 'dashboard' }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -77,28 +118,35 @@ function DashboardPage({ activePage = 'dashboard' }) {
   const [jadvalData, setJadvalData] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const getInitialMenu = () => {
+    const pathname = location.pathname.toLowerCase()
+    if (activePage === 'teachers' || pathname.startsWith('/teachers')) return 'oqituvchilar'
+    if (activePage === 'students' || pathname.startsWith('/students')) return 'talabalar'
+    if (activePage === 'groups' || pathname.startsWith('/groups')) return 'guruhlar'
+    if (activePage === 'gifts' || pathname.startsWith('/gifts')) return 'sovgalar'
+    if (subId) return subId
+    return 'asosiy'
+  }
+  const [activeMenu, setActiveMenu] = useState(getInitialMenu)
+  const [giftRefreshCount, setGiftRefreshCount] = useState(0)
+
   useEffect(() => {
+    if (activeMenu !== 'asosiy') {
+      setLoading(false)
+      return
+    }
     const loadStats = async () => {
-      // Load stats from multiple APIs in parallel
-      const results = await Promise.allSettled([
-        getJson('/students'),
-        getJson('/teachers'),
-        getJson('/groups/all'),
-        getJson('/courses'),
-      ])
+      setLoading(true)
+      const results = await Promise.allSettled(
+        dashboardStatsConfig.map(item => getJson(item.endpoint))
+      )
 
-      const studentsData = results[0].status === 'fulfilled' ? (results[0].value?.data || results[0].value) : []
-      const teachersData = results[1].status === 'fulfilled' ? (results[1].value?.data || results[1].value) : []
-      const groupsData   = results[2].status === 'fulfilled' ? (results[2].value?.data || results[2].value) : []
-      const coursesData  = results[3].status === 'fulfilled' ? (results[3].value?.data || results[3].value) : []
+      setStatsData(dashboardStatsConfig.map((item, index) => ({
+        ...item,
+        value: results[index].status === 'fulfilled' ? String(getApiTotal(results[index].value)) : '0',
+      })))
 
-      setStatsData([
-        { label: 'Talabalar',     value: String(Array.isArray(studentsData) ? studentsData.length : 0), icon: GraduationCap, color: '#0d9488' },
-        { label: "O'qituvchilar", value: String(Array.isArray(teachersData) ? teachersData.length : 0), icon: Users,         color: '#db2777' },
-        { label: 'Guruhlar',      value: String(Array.isArray(groupsData)   ? groupsData.length   : 0), icon: Home,          color: '#7c3aed' },
-        { label: 'Kurslar',       value: String(Array.isArray(coursesData)  ? coursesData.length  : 0), icon: BookOpen,      color: '#2563eb' },
-        { label: "Sovg'alar",     value: '0',                                                             icon: Gift,          color: '#d97706' },
-      ])
+      const groupsData = results[2].status === 'fulfilled' ? getApiItems(results[2].value) : []
 
       // Load dars jadvali — available to all roles via group lessons
       try {
@@ -125,24 +173,14 @@ function DashboardPage({ activePage = 'dashboard' }) {
         console.error('Lessons API Error:', err)
       }
 
-      // Fallback jadval
-      setJadvalData([
-        { kun: 'Dushanba', fan: 'Matematika', vaqt: '08:00 - 09:30', sinf: '9-A', ustoz: 'Yusupov A.' },
-        { kun: 'Dushanba', fan: 'Fizika', vaqt: '09:45 - 11:15', sinf: '10-B', ustoz: 'Karimov B.' },
-        { kun: 'Seshanba', fan: 'Informatika', vaqt: '08:00 - 09:30', sinf: '11-A', ustoz: 'Rahimov C.' },
-        { kun: 'Chorshanba', fan: 'Kimyo', vaqt: '10:00 - 11:30', sinf: '9-B', ustoz: 'Nazarov D.' },
-        { kun: 'Payshanba', fan: 'Biologiya', vaqt: '08:00 - 09:30', sinf: '10-A', ustoz: 'Xoliqov E.' },
-      ])
+      setJadvalData([])
 
       setLoading(false)
     }
 
     loadStats()
-  }, [])
+  }, [activeMenu])
 
-  const [activeMenu, setActiveMenu] = useState('asosiy')
-  const [giftRefreshCount, setGiftRefreshCount] = useState(0)
-  
   useEffect(() => {
     const pathname = location.pathname.toLowerCase()
 
@@ -161,7 +199,7 @@ function DashboardPage({ activePage = 'dashboard' }) {
 
   const [jadvalOpen, setJadvalOpen] = useState(true)
   const [mobileSidebar, setMobileSidebar] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('najot-theme') === 'dark')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [calendarDrawerOpen, setCalendarDrawerOpen] = useState(false)
   const sidebarRef = useRef(null)
@@ -183,9 +221,15 @@ function DashboardPage({ activePage = 'dashboard' }) {
     }
   }, [submenuOpen])
 
+  useEffect(() => {
+    localStorage.setItem('najot-theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
+
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('userPhone')
+    document.cookie = 'token=; path=/; max-age=0; SameSite=Lax'
+    document.cookie = 'userPhone=; path=/; max-age=0; SameSite=Lax'
     navigate('/')
   }
 
@@ -540,14 +584,7 @@ function DashboardPage({ activePage = 'dashboard' }) {
 
 // ── Sub Component: ManagementView ──
 const ManagementView = ({ activeMenu, subMenuItems, setActiveMenu, navigate, setSubmenuOpen }) => {
-  const [rooms, setRooms] = useState([
-    { id: 1, name: 'genious room', capacity: 15 },
-    { id: 2, name: 'Impact room', capacity: 12 },
-    { id: 3, name: '1A', capacity: 25 },
-    { id: 4, name: '205-xona', capacity: 32 },
-    { id: 5, name: '16-xona', capacity: 18 },
-    { id: 6, name: '5 xona', capacity: 30 },
-  ])
+  const [rooms, setRooms] = useState([])
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [roomName, setRoomName] = useState('')
@@ -593,6 +630,18 @@ const ManagementView = ({ activeMenu, subMenuItems, setActiveMenu, navigate, set
     } catch (err) {
       console.error('Room create error:', err)
       alert(err.message || "Xona qo'shishda xatolik yuz berdi.")
+    }
+  }
+
+  const deleteRoom = async (id) => {
+    if (!window.confirm("Haqiqatan ham bu xonani o'chirmoqchimisiz?")) return
+
+    try {
+      await deleteJson(`/rooms/${id}`)
+      setRooms(prev => prev.filter(room => room.id !== id))
+    } catch (err) {
+      console.error('Room delete error:', err)
+      alert(err.message || "Xonani o'chirishda xatolik yuz berdi.")
     }
   }
 
@@ -651,7 +700,7 @@ const ManagementView = ({ activeMenu, subMenuItems, setActiveMenu, navigate, set
                       <p>Sig'imi: {room.capacity || room.cap || 0}</p>
                     </div>
                     <div className="room-actions">
-                      <button className="room-action-btn"><Trash2 size={16} /></button>
+                      <button className="room-action-btn" onClick={() => deleteRoom(room.id)}><Trash2 size={16} /></button>
                       <button className="room-action-btn"><Pencil size={16} /></button>
                     </div>
                   </div>
@@ -725,5 +774,3 @@ const ManagementView = ({ activeMenu, subMenuItems, setActiveMenu, navigate, set
 }
 
 export default DashboardPage
-
-

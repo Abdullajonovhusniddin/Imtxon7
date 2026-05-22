@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import loginImg from '../assets/image.png'
+import { postJson, saveAuth } from '../api'
+
+const LOGIN_API = 'https://najot-edu.softwareengineer.uz/api/v1/auth/login'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -17,35 +20,27 @@ function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('https://najot-edu.softwareengineer.uz/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password })
-      })
+      const data = await postJson(LOGIN_API, { phone: phone.trim(), password })
 
-      const data = await response.json()
-      console.log('API Status:', response.status)
-      console.log('API Data:', data)
-
-      // Agar status ok (200-299) bo'lsa kirishga ruxsat beramiz
-      if (response.ok) {
-        // Har xil API'lar har xil nom bilan token berishi mumkin
-        const token = data.token || data.access_token || data.accessToken || (data.data && data.data.token)
-        
-        if (token) {
-          localStorage.setItem('token', token)
-          localStorage.setItem('userPhone', phone)
-          console.log('Token saqlandi:', token)
-          navigate('/dashboard')
-        } else {
-          console.error('Token topilmadi! API response tarkibini tekshiring.')
-          setError("Tizimda xatolik: Token topilmadi.")
-        }
+      // Har xil API'lar har xil nom bilan token berishi mumkin
+      const token =
+        data?.token ||
+        data?.access_token ||
+        data?.accessToken ||
+        data?.data?.token ||
+        data?.data?.access_token ||
+        data?.data?.accessToken ||
+        data?.user?.token
+      
+      if (token) {
+        saveAuth({ token, userPhone: phone })
+        navigate('/dashboard')
       } else {
-        setError(data.message || "Telefon yoki parol noto'g'ri!")
+        console.error('Token topilmadi! API response tarkibini tekshiring.')
+        setError("Tizimda xatolik: Token topilmadi.")
       }
     } catch (err) {
-      setError("Server bilan aloqa uzildi. Iltimos qaytadan urinib ko'ring.")
+      setError(err.message || "Server bilan aloqa uzildi. Iltimos qaytadan urinib ko'ring.")
     } finally {
       setLoading(false)
     }

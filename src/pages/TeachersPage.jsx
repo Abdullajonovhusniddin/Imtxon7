@@ -2,85 +2,152 @@ import { useState, useEffect } from 'react'
 import { 
   Search, 
   Plus, 
-  Coins, 
   Pencil, 
   Trash2, 
   X,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   Upload,
   Calendar as CalendarIcon,
   Mail
 } from 'lucide-react'
-import { getJson } from '../api'
+import { deleteJson, getJson, patchJson, postJson } from '../api'
 
-const API_BASE = 'https://najot-edu.softwareengineer.uz/api/v1'
-
-const postFormData = async (path, formData) => {
-  const token = localStorage.getItem('token')
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  })
-  const text = await response.text()
-  let data
-  try { data = text ? JSON.parse(text) : null } catch { data = text }
-  if (!response.ok) {
-    const message = data?.message || data?.error || response.statusText || 'API error'
-    throw new Error(message)
-  }
-  return data
-}
+const TEACHERS_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers'
+const TEACHERS_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers/archive'
+const TEACHER_ONE_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers/one'
 
 function TeachersPage() {
   const [teachers, setTeachers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [activeTab, setActiveTab] = useState('active')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTeacher, setEditingTeacher] = useState(null)
+  const [failedPhotoIds, setFailedPhotoIds] = useState([])
+  const [photoFile, setPhotoFile] = useState(null)
+  const [saving, setSaving] = useState(false)
 
   // Form states
-  const [formData, setFormData] = useState({ name: '', email: '', address: '', groups: [], phone: '', birthDate: '', coin: '0', status: 'Aktiv' })
-  
+  const [formData, setFormData] = useState({ name: '', email: '', address: '', groups: [], phone: '', birthDate: '', gender: '', password: '', coin: '0', status: 'Aktiv' })
+
+  const resolveImageUrl = (src) => {
+    if (!src) return null
+    if (typeof src === 'string') return src
+    if (typeof src === 'object') {
+      return src.url || src.path || src.src || src.image || src.avatar || null
+    }
+    return null
+  }
+
+  const normalizeImageUrl = (url) => {
+    if (!url) return null
+    if (typeof url !== 'string') return null
+    if (url.startsWith('http://') || url.startsWith('https://')) return url
+    if (url.startsWith('/')) return `${TEACHERS_API}${url}`
+    return `${TEACHERS_API}/${url}`
+  }
+
+  const formatDate = (value) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (!isNaN(date)) return date.toLocaleDateString()
+    return String(value)
+  }
+
+  const getInitials = (name = '') => {
+    const initials = String(name)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part[0]?.toUpperCase())
+      .join('')
+
+    return initials || 'N'
+  }
+
+  const getGroupNames = (teacher) => {
+    if (Array.isArray(teacher.GroupTeacher)) {
+      return teacher.GroupTeacher
+        .map(item => item?.Group?.name || item?.Group?.group_name)
+        .filter(Boolean)
+    }
+
+    if (Array.isArray(teacher.groups)) {
+      return teacher.groups
+        .map(group => {
+          if (typeof group === 'string') return group
+          return group?.name || group?.group_name || group?.title
+        })
+        .filter(Boolean)
+    }
+
+    if (teacher.group_name || teacher.group) {
+      return [teacher.group_name || teacher.group]
+    }
+
+    return []
+  }
+
+  const normalizePhone = (value = '') => {
+    const phone = String(value).trim()
+    if (!phone) return ''
+    if (phone.startsWith('+998')) return phone
+    if (phone.startsWith('998')) return `+${phone}`
+    return `+998${phone.replace(/^\+/, '')}`
+  }
+
   // Group select states
   const [availableGroups, setAvailableGroups] = useState([])
   const [groupSearch, setGroupSearch] = useState('')
   const [showGroupDropdown, setShowGroupDropdown] = useState(false)
-  const teachersPerPage = 5
+  const loadTeachers = async (tab = activeTab) => {
+    setLoading(true)
+    setFailedPhotoIds([])
+    try {
+      const response = await getJson(tab === 'archive' ? TEACHERS_ARCHIVE_API : TEACHERS_API)
+      const data = response.data || response
+      const teachersData = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.teachers)
+          ? data.teachers
+          : Array.isArray(data?.data)
+            ? data.data
+            : []
+
+      const mapped = teachersData.map(t => {
+        const name = t.full_name || t.name || t.fullName || "Noma'lum"
+        const rawPhoto = t.photo || t.image || t.avatar || t.photo_url || t.photoUrl || t.profile_photo || t.picture || t.image_url || t.avatar_url || t.photo?.url || t.image?.url || t.avatar?.url
+        const photo = normalizeImageUrl(resolveImageUrl(rawPhoto))
+        const groupNames = getGroupNames(t)
+        const rawBirthDate = t.birth_date || t.birthDate || t.dob || t.birthday || t.born
+
+        return ({
+          ...t,
+          name,
+          photo,
+          initials: getInitials(name),
+          phone: t.phone || t.mobile || t.phone_number || '-',
+          email: t.email || '-',
+          birthDate: formatDate(rawBirthDate),
+          groupList: groupNames,
+          group: groupNames.join(', '),
+          createdAt: formatDate(t.created_at || t.createdAt),
+          coin: t.coin || t.balance || '0',
+          status: tab === 'archive' ? 'Arxiv' : (t.status || t.activity || 'Aktiv'),
+        })
+      }).sort((a, b) => Number(a.id) - Number(b.id))
+      setTeachers(mapped)
+    } catch (err) {
+      console.error('Teachers API Error:', err)
+      setTeachers([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const response = await getJson('/teachers')
-        const data = response.data || response
-        if (Array.isArray(data)) {
-          const mapped = data.map(t => ({
-            ...t,
-            name: t.full_name || t.name || "Noma'lum",
-            phone: t.phone || '-',
-            email: t.email || '-',
-            birthDate: t.birth_date || t.birthDate || '-',
-            group: t.group_name || t.group || '-',
-            coin: t.coin || '0',
-            status: t.status || 'Aktiv',
-          }))
-          setTeachers(mapped)
-        }
-      } catch (err) {
-        console.error('Teachers API Error:', err)
-        setTeachers([
-          { id: 1, name: 'Husniddin Abdullajonov', email: 'husniddin@example.com', group: 'Frontend', phone: '+998(33)4082808', birthDate: '1998-05-12', coin: '1,250', status: 'Aktiv' },
-          { id: 2, name: 'Anvar Narzullayev', email: 'anvar@example.com', group: 'Python', phone: '+998(90)1234567', birthDate: '1985-01-24', coin: '2,400', status: 'Aktiv' },
-          { id: 3, name: 'Sardorbek Shokirov', email: 'sardor@example.com', group: 'JavaScript', phone: '+998(93)5556677', birthDate: '1992-03-15', coin: '980', status: 'Aktiv' },
-          { id: 4, name: 'Malika Ergasheva', email: 'malika@example.com', group: 'Graphic Design', phone: '+998(94)1112233', birthDate: '1995-11-20', coin: '1,850', status: 'Aktiv' },
-          { id: 5, name: 'Jasur Mavlonov', email: 'jasur@example.com', group: 'Mobile', phone: '+998(99)8887766', birthDate: '1990-07-08', coin: '3,200', status: "Ta'tilda" },
-        ])
-      }
-
-
       try {
         const groupsResponse = await getJson('/groups/all')
         const groupsData = groupsResponse.data || groupsResponse
@@ -89,31 +156,22 @@ function TeachersPage() {
         console.error('Group list API Error:', err)
       }
 
-      setLoading(false)
+      loadTeachers('active')
     }
 
     loadData()
   }, [])
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    setSearch('')
+    loadTeachers(tab)
+  }
+
   const filteredTeachers = teachers.filter((t) => {
     const fullName = String(t.name || t.full_name || '')
     return fullName.toLowerCase().includes(search.toLowerCase())
   })
-
-  const totalPages = Math.max(1, Math.ceil(filteredTeachers.length / teachersPerPage))
-  const currentTeachers = filteredTeachers.slice((currentPage - 1) * teachersPerPage, currentPage * teachersPerPage)
-
-  const handlePageChange = (page) => {
-    if (page < 1 || page > totalPages) return
-    setCurrentPage(page)
-  }
-
-  const handlePrevPage = () => handlePageChange(currentPage - 1)
-  const handleNextPage = () => handlePageChange(currentPage + 1)
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search])
 
   const handleAddGroup = (group) => {
     if (!formData.groups.find(g => g.id === group.id)) {
@@ -127,55 +185,178 @@ function TeachersPage() {
     setFormData({ ...formData, groups: formData.groups.filter(g => g.id !== groupId) })
   }
 
-  const openModal = (teacher = null) => {
+  const getTeacherById = async (id) => {
+    const response = await getJson(`${TEACHER_ONE_API}/${id}`)
+    return response?.data || response
+  }
+
+  const fillTeacherForm = (teacher) => {
+    const teacherGroups = Array.isArray(teacher.groups)
+      ? teacher.groups
+      : Array.isArray(teacher.GroupTeacher)
+        ? teacher.GroupTeacher.map(item => item?.Group).filter(Boolean)
+        : []
+
+    setEditingTeacher(teacher)
+    setFormData({
+      name: teacher.full_name || teacher.name || '',
+      email: teacher.email || '',
+      address: teacher.address || '',
+      groups: teacherGroups,
+      phone: teacher.phone || '',
+      birthDate: teacher.birth_date || teacher.birthDate || '',
+      gender: teacher.gender || '',
+      password: '',
+      coin: teacher.coin || '0',
+      status: teacher.status || 'Aktiv',
+    })
+  }
+
+  const openModal = async (teacher = null) => {
+    setPhotoFile(null)
+
     if (teacher) {
-      setEditingTeacher(teacher)
-      // Ensure groups is an array even if the mock data had a string 'group'
-      setFormData({ ...teacher, address: teacher.address || '', groups: teacher.groups || [] })
+      fillTeacherForm(teacher)
+      setIsModalOpen(true)
+
+      try {
+        const freshTeacher = await getTeacherById(teacher.id)
+        fillTeacherForm({ ...teacher, ...freshTeacher })
+      } catch (err) {
+        console.error('Teacher detail API Error:', err)
+        alert(err.message || "O'qituvchi ma'lumotlarini yuklashda xatolik yuz berdi.")
+      }
     } else {
       setEditingTeacher(null)
-      setFormData({ name: '', email: '', address: '', groups: [], phone: '', birthDate: '', coin: '0', status: 'Aktiv' })
+      setFormData({ name: '', email: '', address: '', groups: [], phone: '', birthDate: '', gender: '', password: '', coin: '0', status: 'Aktiv' })
+      setIsModalOpen(true)
     }
-    setIsModalOpen(true)
   }
 
   const closeModal = () => {
     setIsModalOpen(false)
     setEditingTeacher(null)
+    setPhotoFile(null)
+  }
+
+  const buildTeacherFormData = () => {
+    const fd = new FormData()
+    fd.append('full_name', formData.name)
+    fd.append('email', formData.email)
+    fd.append('phone', normalizePhone(formData.phone))
+    fd.append('address', formData.address || '')
+    fd.append('birth_date', formData.birthDate || '')
+    if (formData.gender) fd.append('gender', formData.gender)
+    if (formData.password) fd.append('password', formData.password)
+    if (photoFile) fd.append('photo', photoFile)
+
+    const groupIds = Array.isArray(formData.groups)
+      ? formData.groups.map(g => g?.id || g?.group_id || g?.groupId || g).filter(Boolean)
+      : []
+    groupIds.forEach(id => fd.append('groups', id))
+
+    return fd
+  }
+
+  const appendChangedField = (fd, key, currentValue, originalValue) => {
+    const current = currentValue ?? ''
+    const original = originalValue ?? ''
+    if (String(current) !== String(original)) {
+      fd.append(key, current)
+    }
+  }
+
+  const buildTeacherPatchData = () => {
+    const fd = new FormData()
+    const originalGroupIds = Array.isArray(editingTeacher?.groups)
+      ? editingTeacher.groups.map(g => g?.id || g?.group_id || g?.groupId || g).filter(Boolean).map(String)
+      : Array.isArray(editingTeacher?.GroupTeacher)
+        ? editingTeacher.GroupTeacher.map(item => item?.Group?.id || item?.group_id).filter(Boolean).map(String)
+        : []
+    const currentGroupIds = Array.isArray(formData.groups)
+      ? formData.groups.map(g => g?.id || g?.group_id || g?.groupId || g).filter(Boolean).map(String)
+      : []
+
+    appendChangedField(fd, 'full_name', formData.name, editingTeacher?.full_name || editingTeacher?.name)
+    appendChangedField(fd, 'email', formData.email, editingTeacher?.email)
+    appendChangedField(fd, 'phone', normalizePhone(formData.phone), editingTeacher?.phone)
+    appendChangedField(fd, 'address', formData.address, editingTeacher?.address)
+    appendChangedField(fd, 'birth_date', formData.birthDate, editingTeacher?.birth_date || editingTeacher?.birthDate)
+    appendChangedField(fd, 'gender', formData.gender, editingTeacher?.gender)
+    if (formData.password) fd.append('password', formData.password)
+    if (photoFile) fd.append('photo', photoFile)
+
+    if (currentGroupIds.join(',') !== originalGroupIds.join(',')) {
+      currentGroupIds.forEach(id => fd.append('groups', id))
+    }
+
+    return fd
+  }
+
+  const mapTeacherToRow = (teacher, fallback = {}) => {
+    const name = teacher?.full_name || teacher?.name || fallback.name || "Noma'lum"
+    const groupList = getGroupNames(teacher || {})
+
+    return {
+      ...fallback,
+      ...teacher,
+      id: teacher?.id || fallback.id || Date.now(),
+      name,
+      email: teacher?.email || fallback.email || '-',
+      phone: teacher?.phone || fallback.phone || '-',
+      birthDate: formatDate(teacher?.birth_date || teacher?.birthDate || fallback.birthDate),
+      gender: teacher?.gender || fallback.gender || '',
+      photo: teacher?.photo ? normalizeImageUrl(resolveImageUrl(teacher.photo)) : fallback.photo || null,
+      initials: getInitials(name),
+      groupList: groupList.length > 0 ? groupList : fallback.groupList || [],
+      group: groupList.length > 0 ? groupList.join(', ') : fallback.group || '-',
+      coin: teacher?.coin || fallback.coin || '0',
+      status: teacher?.status || fallback.status || 'Aktiv',
+      createdAt: formatDate(teacher?.created_at || teacher?.createdAt || fallback.createdAt),
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (saving) return
+
+    setSaving(true)
     try {
       if (editingTeacher) {
-        setTeachers(teachers.map(t => t.id === editingTeacher.id ? { ...formData, id: t.id } : t))
+        const updated = await patchJson(`${TEACHERS_API}/${editingTeacher.id}`, buildTeacherPatchData())
+        const updatedTeacher = updated?.data || updated
+        const fallback = {
+          ...editingTeacher,
+          name: formData.name,
+          email: formData.email,
+          phone: normalizePhone(formData.phone),
+          birthDate: formData.birthDate,
+          gender: formData.gender,
+          groupList: formData.groups.map(group => group.name || group.group_name).filter(Boolean),
+        }
+
+        setTeachers(prev => prev.map(t =>
+          t.id === editingTeacher.id ? mapTeacherToRow(updatedTeacher, fallback) : t
+        ))
         closeModal()
         return
       }
 
-      // API requires multipart/form-data
-      const fd = new FormData()
-      fd.append('full_name', formData.name)
-      fd.append('email', formData.email)
-      fd.append('phone', formData.phone)
-      fd.append('address', formData.address || '')
-      fd.append('birth_date', formData.birthDate || '')
-
-      const groupIds = Array.isArray(formData.groups)
-        ? formData.groups.map(g => g.id || g.group_id || g.groupId || g)
-        : []
-      groupIds.forEach(id => fd.append('groups', id))
-
-      const created = await postFormData('/teachers', fd)
+      const created = await postJson(TEACHERS_API, buildTeacherFormData())
       const createdTeacher = created?.data || created
       setTeachers(prev => [...prev, {
         ...createdTeacher,
         id: createdTeacher?.id || Date.now(),
         name: createdTeacher?.full_name || formData.name,
         email: createdTeacher?.email || formData.email,
-        phone: createdTeacher?.phone || formData.phone,
+        phone: createdTeacher?.phone || normalizePhone(formData.phone),
         birthDate: createdTeacher?.birth_date || formData.birthDate,
+        gender: createdTeacher?.gender || formData.gender,
+        password: formData.password,
+        photo: createdTeacher?.photo ? normalizeImageUrl(resolveImageUrl(createdTeacher.photo)) : null,
+        initials: getInitials(createdTeacher?.full_name || formData.name),
         group: formData.groups[0]?.name || formData.groups[0]?.group_name || '-',
+        groupList: formData.groups.map(group => group.name || group.group_name).filter(Boolean),
         coin: '0',
         status: 'Aktiv',
       }])
@@ -184,12 +365,20 @@ function TeachersPage() {
     } catch (err) {
       console.error('Teacher save error:', err)
       alert(err.message || "O'qituvchi saqlashda xatolik yuz berdi.")
+    } finally {
+      setSaving(false)
     }
   }
 
-  const deleteTeacher = (id) => {
-    if (window.confirm("Haqiqatan ham bu o'qituvchini o'chirmoqchimisiz?")) {
-      setTeachers(teachers.filter(t => t.id !== id))
+  const deleteTeacher = async (id) => {
+    if (!window.confirm("Haqiqatan ham bu o'qituvchini o'chirmoqchimisiz?")) return
+
+    try {
+      await deleteJson(`${TEACHERS_API}/${id}`)
+      setTeachers(prev => prev.filter(t => t.id !== id))
+    } catch (err) {
+      console.error('Teacher delete error:', err)
+      alert(err.message || "O'qituvchini o'chirishda xatolik yuz berdi.")
     }
   }
 
@@ -228,7 +417,16 @@ function TeachersPage() {
               <Filter size={18} />
               Filters
             </button>
-            <button className="control-btn">
+            <button
+              className={`control-btn ${activeTab === 'active' ? 'active' : ''}`}
+              onClick={() => handleTabChange('active')}
+            >
+              Faol
+            </button>
+            <button
+              className={`control-btn ${activeTab === 'archive' ? 'active' : ''}`}
+              onClick={() => handleTabChange('archive')}
+            >
               Arxiv
             </button>
           </div>
@@ -243,11 +441,10 @@ function TeachersPage() {
                   <input type="checkbox" />
                 </th>
                 <th>O'qituvchi &darr;</th>
-                <th>Yo'nalish</th>
-                <th>Telefon</th>
-                <th>Tug'ilgan Sana</th>
-                <th>Status</th>
-                <th>Coin</th>
+                <th>Guruh</th>
+                <th>Telefon raqamlari</th>
+                <th>Tug'ilgan sanasi</th>
+                <th>Yaratilgan sana</th>
                 <th className="actions-col">Amallar</th>
               </tr>
             </thead>
@@ -283,42 +480,57 @@ function TeachersPage() {
                     </td>
                   </tr>
                 ))
-              ) : currentTeachers.map((teacher) => (
+              ) : filteredTeachers.map((teacher) => (
                 <tr key={teacher.id}>
                   <td><input type="checkbox" /></td>
                   <td>
                     <div className="student-info">
-                      <div className="student-avatar" style={{ backgroundColor: '#f1f5f9' }}>
-                        {teacher.name.split(' ').map(n => n[0]).join('')}
-                      </div>
+                      {teacher.photo && !failedPhotoIds.includes(teacher.id) ? (
+                        <img
+                          src={teacher.photo}
+                          alt={teacher.name}
+                          className="teacher-avatar-img"
+                          onError={() => setFailedPhotoIds(prev => prev.includes(teacher.id) ? prev : [...prev, teacher.id])}
+                        />
+                      ) : (
+                        <div className="student-avatar" style={{ backgroundColor: '#f1f5f9' }}>
+                          {teacher.initials || getInitials(teacher.name)}
+                        </div>
+                      )}
                       <div>
                         <span className="student-name">{teacher.name}</span>
                         <div style={{ fontSize: '0.75rem', color: 'var(--sub)' }}>{teacher.email}</div>
                       </div>
                     </div>
                   </td>
-                  <td><span className="group-tag">{teacher.group}</span></td>
-                  <td><span className="phone-text">{teacher.phone}</span></td>
-                  <td>{teacher.birthDate}</td>
                   <td>
-                    <span className={`pill-badge ${teacher.status === 'Aktiv' ? 'status-active' : 'status-away'}`}>
-                      {teacher.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="coin-pill">
-                      <Coins size={14} color="#b45309" />
-                      {teacher.coin}
+                    <div className="group-badges">
+                      {teacher.groupList && teacher.groupList.length > 0 ? (
+                        teacher.groupList.map((groupName, index) => (
+                          <span key={`${teacher.id}-group-${index}`} className="group-tag">
+                            {groupName}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="group-tag">-</span>
+                      )}
                     </div>
                   </td>
+                  <td><span className="phone-text">{teacher.phone}</span></td>
+                  <td>{teacher.birthDate}</td>
+                  <td>{teacher.createdAt}</td>
                   <td>
                     <div className="actions-row">
-                      <button className="action-icon-btn edit" onClick={() => openModal(teacher)} title="Tahrirlash">
-                        <Pencil size={16} />
-                      </button>
-                      <button className="action-icon-btn delete" onClick={() => deleteTeacher(teacher.id)} title="O'chirish">
-                        <Trash2 size={16} />
-                      </button>
+                      {activeTab === 'active' && (
+                        <>
+                          <button className="action-icon-btn edit" onClick={() => openModal(teacher)} title="Tahrirlash">
+                            <Pencil size={16} />
+                          </button>
+                          <button className="action-icon-btn delete" onClick={() => deleteTeacher(teacher.id)} title="O'chirish">
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -327,31 +539,6 @@ function TeachersPage() {
           </table>
         </div>
 
-        {/* PAGINATION */}
-        <div className="pagination">
-          <button className="pagination-arrow" onClick={handlePrevPage} disabled={currentPage === 1}>
-            <ChevronLeft size={18} />
-            Previous
-          </button>
-          <div className="page-numbers">
-            {Array.from({ length: totalPages }, (_, index) => {
-              const page = index + 1
-              return (
-                <button
-                  key={page}
-                  className={`page-num ${currentPage === page ? 'active' : ''}`}
-                  onClick={() => handlePageChange(page)}
-                >
-                  {page}
-                </button>
-              )
-            })}
-          </div>
-          <button className="pagination-arrow" onClick={handleNextPage} disabled={currentPage === totalPages}>
-            Next
-            <ChevronRight size={18} />
-          </button>
-        </div>
       </div>
 
       {/* MODAL */}
@@ -470,31 +657,61 @@ function TeachersPage() {
                 <label className="s-form-label">Jinsi</label>
                 <div style={{ display: 'flex', gap: '1.5rem', background: '#fafafa', padding: '0.75rem 1rem', borderRadius: '10px', width: 'max-content' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input type="radio" name="gender" value="Erkak" style={{ accentColor: '#7c3aed' }} /> Erkak
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="Erkak"
+                      checked={formData.gender === 'Erkak'}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                      style={{ accentColor: '#7c3aed' }}
+                    /> Erkak
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input type="radio" name="gender" value="Ayol" style={{ accentColor: '#7c3aed' }} /> Ayol
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="Ayol"
+                      checked={formData.gender === 'Ayol'}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                      style={{ accentColor: '#7c3aed' }}
+                    /> Ayol
                   </label>
                 </div>
               </div>
 
               <div className="s-form-group">
                 <label className="s-form-label">Surati</label>
-                <div className="s-upload-zone">
+                <div className="s-upload-zone" style={{ cursor: 'pointer', position: 'relative' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                  />
                   <Upload size={24} className="s-upload-icon" />
-                  <p className="s-upload-text"><span>Click to upload</span> or drag and drop</p>
+                  <p className="s-upload-text">
+                    {photoFile ? <span>{photoFile.name}</span> : <><span>Click to upload</span> or drag and drop</>}
+                  </p>
                   <p className="s-upload-hint">JPG or PNG (max. 800x800px)</p>
                 </div>
-                <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
-                  <button type="button" style={{ background: 'none', border: 'none', color: '#7c3aed', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
-                    <Plus size={16} /> Parol qoshish
-                  </button>
-                </div>
+              </div>
+
+              <div className="s-form-group">
+                <label className="s-form-label">Parol</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Parolni kiriting"
+                  className="s-form-input"
+                />
               </div>
 
               <div className="s-modal-actions" style={{ justifyContent: 'flex-end', paddingTop: '1rem' }}>
                 <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={closeModal}>Bekor qilish</button>
-                <button type="submit" className="s-btn-submit" style={{ flex: 'none', padding: '0.75rem 2rem' }}>Saqlash</button>
+                <button type="submit" className="s-btn-submit active" disabled={saving} style={{ flex: 'none', padding: '0.75rem 2rem' }}>
+                  {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+                </button>
               </div>
             </form>
           </div>

@@ -1,44 +1,25 @@
 import { useState, useEffect } from 'react'
-import { 
-  Search, 
-  Plus, 
-  Filter, 
-  Eye, 
-  Trash2, 
-  Pencil, 
-  ChevronLeft, 
+import {
+  Search,
+  Plus,
+  Filter,
+  Eye,
+  Trash2,
+  Pencil,
+  ChevronLeft,
   ChevronRight,
   X,
   Upload,
   Calendar as CalendarIcon
 } from 'lucide-react'
-import { getJson } from '../api'
-
-const API_BASE = 'https://najot-edu.softwareengineer.uz/api/v1'
-
-const postFormData = async (path, formData) => {
-  const token = localStorage.getItem('token')
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  })
-  const text = await response.text()
-  let data
-  try { data = text ? JSON.parse(text) : null } catch { data = text }
-  if (!response.ok) {
-    const message = data?.message || data?.error || response.statusText || 'API error'
-    throw new Error(message)
-  }
-  return data
-}
+import { buildApiUrl, deleteJson, getJson, postJson } from '../api'
 
 function StudentsPage() {
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState('')
-  
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [availableGroups, setAvailableGroups] = useState([])
@@ -95,7 +76,7 @@ function StudentsPage() {
       if (photoFile) fd.append('photo', photoFile)
       selectedGroups.forEach(groupId => fd.append('groups', groupId))
 
-      const created = await postFormData('/students', fd)
+      const created = await postJson('/students/archive/students', fd)
       const newStudent = created?.data || created
 
       setStudents(prev => [...prev, {
@@ -122,21 +103,20 @@ function StudentsPage() {
   const loadData = async () => {
     setApiError('')
     try {
-      const response = await getJson('/users/admin/all')
+      const response = await getJson('/students')
       const data = response.data || response
       if (Array.isArray(data)) {
         const mappedData = data.map(item => {
           const name = item.full_name || item.name || item.fullName || "Noma'lum"
-          // try common photo fields
           let photo = item.photo || item.image || item.avatar || item.photo_url || item.photoUrl || item.profile_photo || item.picture
           if (photo && typeof photo === 'string' && photo.startsWith('/')) {
-            photo = `${API_BASE}${photo}`
+            photo = buildApiUrl(`/students/archive${photo}`)
           }
 
           return ({
             id: item.id || item.user_id || Math.random(),
             name,
-            group: item.group_name || item.group || item.role || 'Guruhsiz',
+            group: item.group_name || item.group || 'Guruhsiz',
             subGroup: item.direction || '',
             phone: item.phone || item.phone_number || item.mobile || '-',
             email: item.email || '-',
@@ -152,17 +132,7 @@ function StudentsPage() {
       }
     } catch (err) {
       console.error('Students API Error:', err)
-      const status = err?.response?.status
-      if (status === 401) {
-        setApiError('API authorization failed. Iltimos tizimga kiring yoki tokenni yangilang.')
-      } else {
-        setApiError(err.message || 'API dan maʼlumot yuklanmadi.')
-      }
-      // Sample/mock students removed. Uncomment below to restore local mock data for development.
-      // setStudents([
-      //   { id: 1, name: 'Ali Valiyev', group: 'N26', subGroup: 'n105', phone: '+998976541223', email: 'ali@gmail.com', birthDate: '12.12.2010', address: 'Sirdaryo', createdAt: '12.05.2026', initial: 'A', color: '#ede9fe' },
-      //   { id: 2, name: 'Salim Qodirov', group: 'n105', subGroup: '', phone: '+998977777777', email: 'salim@gmail.com', birthDate: '14.01.2007', address: 'Buxoro', createdAt: '14.05.2026', initial: 'S', color: '#ede9fe' },
-      // ])
+      setApiError("Talabalar ma'lumotlarini yuklashda xatolik yuz berdi.")
       setStudents([])
     }
 
@@ -174,10 +144,6 @@ function StudentsPage() {
       }
     } catch (err) {
       console.error('Groups API Error:', err)
-      setAvailableGroups([
-        { id: '1', name: 'N26', group_name: 'N26' },
-        { id: '2', name: 'n105', group_name: 'n105' }
-      ])
     }
 
     setLoading(false)
@@ -187,10 +153,22 @@ function StudentsPage() {
     loadData()
   }, [])
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredStudents = students.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
     String(s.email).toLowerCase().includes(search.toLowerCase())
   )
+
+  const deleteStudent = async (id) => {
+    if (!window.confirm("Haqiqatan ham bu talabani o'chirmoqchimisiz?")) return
+
+    try {
+      await deleteJson(`/students/${id}`)
+      setStudents(prev => prev.filter(student => student.id !== id))
+    } catch (err) {
+      console.error('Student delete error:', err)
+      alert(err.message || "Talabani o'chirishda xatolik yuz berdi.")
+    }
+  }
 
   return (
     <div className="students-page animate-fade-in">
@@ -199,7 +177,7 @@ function StudentsPage() {
         <div className="header-left">
           <h1 className="page-title">Talabalar</h1>
           <p className="page-subtitle">
-            Ushbu sahifada siz Talabalar ro'yxatini va ularning ma'lumotlarini topasiz. 
+            Ushbu sahifada siz Talabalar ro'yxatini va ularning ma'lumotlarini topasiz.
             Har bir Talaba ismi, fanlari va aloqa ma'lumotlari keltirilgan.
           </p>
         </div>
@@ -214,9 +192,9 @@ function StudentsPage() {
         <div className="card-controls">
           <div className="search-container">
             <Search size={18} className="search-icon" />
-            <input 
-              type="text" 
-              placeholder="Search" 
+            <input
+              type="text"
+              placeholder="Search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input"
@@ -232,6 +210,11 @@ function StudentsPage() {
             </button>
           </div>
         </div>
+        {apiError && (
+          <div style={{ margin: '1rem 0', padding: '1rem', borderRadius: '12px', background: '#fef3c7', color: '#92400e' }}>
+            {apiError}
+          </div>
+        )}
 
         {apiError && (
           <div className="api-error-banner" style={{ padding: '1rem', marginBottom: '1rem', borderRadius: '12px', background: '#ffedd5', color: '#b45309' }}>
@@ -314,7 +297,7 @@ function StudentsPage() {
                   <td>
                     <div className="actions-row">
                       <button className="action-icon-btn" title="Ko'rish"><Eye size={16} /></button>
-                      <button className="action-icon-btn delete" title="O'chirish"><Trash2 size={16} /></button>
+                      <button className="action-icon-btn delete" title="O'chirish" onClick={() => deleteStudent(student.id)}><Trash2 size={16} /></button>
                       <button className="action-icon-btn edit" title="Tahrirlash"><Pencil size={16} /></button>
                     </div>
                   </td>
@@ -344,7 +327,7 @@ function StudentsPage() {
       {isModalOpen && (
         <div className="student-modal-overlay" onClick={closeModal}>
           <div className="student-modal-content" onClick={e => e.stopPropagation()}>
-            
+
             <div className="s-modal-header">
               <div>
                 <h2 className="s-modal-title">Talaba qo'shish</h2>
@@ -356,50 +339,50 @@ function StudentsPage() {
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              
+
               <div className="s-form-group">
                 <label className="s-form-label">To'liq ismi *</label>
-                <input 
-                  type="text" 
-                  className="s-form-input" 
-                  placeholder="Ism Familiya" 
+                <input
+                  type="text"
+                  className="s-form-input"
+                  placeholder="Ism Familiya"
                   value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
 
               <div className="s-form-group">
                 <label className="s-form-label">Telefon</label>
-                <input 
-                  type="text" 
-                  className="s-form-input" 
-                  placeholder="+998901234567" 
+                <input
+                  type="text"
+                  className="s-form-input"
+                  placeholder="+998901234567"
                   value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
+                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
 
               <div className="s-form-group">
                 <label className="s-form-label">Email</label>
-                <input 
-                  type="email" 
-                  className="s-form-input" 
-                  placeholder="email@example.com" 
+                <input
+                  type="email"
+                  className="s-form-input"
+                  placeholder="email@example.com"
                   value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
 
               <div className="s-form-group">
                 <label className="s-form-label">Tug'ilgan sanasi</label>
                 <div style={{ position: 'relative' }}>
-                  <input 
-                    type="date" 
-                    className="s-form-input" 
+                  <input
+                    type="date"
+                    className="s-form-input"
                     style={{ width: '100%' }}
                     value={formData.birthDate}
-                    onChange={e => setFormData({...formData, birthDate: e.target.value})}
+                    onChange={e => setFormData({ ...formData, birthDate: e.target.value })}
                   />
                   <CalendarIcon size={18} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
                 </div>
@@ -407,23 +390,23 @@ function StudentsPage() {
 
               <div className="s-form-group">
                 <label className="s-form-label">Manzil</label>
-                <input 
-                  type="text" 
-                  className="s-form-input" 
-                  placeholder="Manzilni kiriting" 
+                <input
+                  type="text"
+                  className="s-form-input"
+                  placeholder="Manzilni kiriting"
                   value={formData.address}
-                  onChange={e => setFormData({...formData, address: e.target.value})}
+                  onChange={e => setFormData({ ...formData, address: e.target.value })}
                 />
               </div>
 
               <div className="s-form-group">
                 <label className="s-form-label">Parol *</label>
-                <input 
-                  type="password" 
-                  className="s-form-input" 
-                  placeholder="Parolni kiriting" 
+                <input
+                  type="password"
+                  className="s-form-input"
+                  placeholder="Parolni kiriting"
                   value={formData.password}
-                  onChange={e => setFormData({...formData, password: e.target.value})}
+                  onChange={e => setFormData({ ...formData, password: e.target.value })}
                   required
                 />
               </div>
@@ -451,9 +434,9 @@ function StudentsPage() {
               <div className="s-form-group">
                 <label className="s-form-label">Surati</label>
                 <div className="s-upload-zone" style={{ cursor: 'pointer', position: 'relative' }}>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
+                  <input
+                    type="file"
+                    accept="image/*"
                     style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
                     onChange={e => setPhotoFile(e.target.files[0])}
                   />

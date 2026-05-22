@@ -1,31 +1,41 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Search, 
   Plus, 
   Filter, 
   Trash2, 
-  Pencil, 
+  Pencil,
   ChevronLeft, 
   ChevronRight,
   X,
   Users,
   Clock,
-  Calendar as CalendarIcon,
   UserPlus,
   GraduationCap,
   MoreVertical,
-  RefreshCw,
-  ToggleRight,
-  ToggleLeft
+  RefreshCw
 } from 'lucide-react'
-import { getJson, postJson } from '../api'
+import { deleteJson, getJson, patchJson, postJson } from '../api'
 
+const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
+const GROUPS_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups'
+const GROUPS_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups/archive'
+const WEEK_DAY_MAP = {
+  Dushanba: 'MONDAY',
+  Seshanba: 'TUESDAY',
+  Chorshanba: 'WEDNESDAY',
+  Payshanba: 'THURSDAY',
+  Juma: 'FRIDAY',
+  Shanba: 'SATURDAY',
+  Yakshanba: 'SUNDAY'
+}
 function GroupsPage() {
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('guruhlar') // 'guruhlar' or 'arxiv'
+  const loadRequestRef = useRef(0)
   const navigate = useNavigate()
   
   // Dynamic datasets for dropdowns and mapping
@@ -46,6 +56,7 @@ function GroupsPage() {
 
   // Modal states for creating/editing a group
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingGroup, setEditingGroup] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     course: '',
@@ -57,7 +68,7 @@ function GroupsPage() {
     },
     time: '09:00',
     startDate: '',
-    duration: '6 oy',
+    maxStudent: '0',
     description: ''
   })
 
@@ -68,13 +79,80 @@ function GroupsPage() {
   const [selectedStudents, setSelectedStudents] = useState([])
   const [activeGroupId, setActiveGroupId] = useState(null)
 
-  const openModal = () => setIsModalOpen(true)
+  const getEntityId = (value) => {
+    if (!value) return ''
+    if (typeof value === 'object') return value.id || value.course_id || value.room_id || value._id || ''
+    return value
+  }
+
+  const getRelatedIds = (items, keys = []) => {
+    if (!Array.isArray(items)) return []
+
+    return items
+      .map(item => {
+        if (!item || typeof item !== 'object') return item
+        for (const key of keys) {
+          if (item[key] !== undefined && item[key] !== null) return item[key]
+        }
+        return item.id || item._id
+      })
+      .filter(id => id !== undefined && id !== null && id !== '')
+  }
+
+  const buildDaysState = (days = []) => {
+    const selected = Array.isArray(days) ? days : []
+    return Object.keys(WEEK_DAY_MAP).reduce((acc, day) => {
+      acc[day] = selected.includes(day) || selected.includes(WEEK_DAY_MAP[day])
+      return acc
+    }, {})
+  }
+
+  const openModal = (group = null) => {
+    setEditingGroup(group)
+
+    if (group) {
+      const teacherIds = getRelatedIds(
+        group.teachers || group.Teachers || group.GroupTeacher?.map(item => item?.Teacher || item?.teacher || item),
+        ['teacher_id', 'teacherId']
+      )
+      const studentIds = getRelatedIds(
+        group.students || group.Students || group.StudentGroup?.map(item => item?.Student || item?.student || item),
+        ['student_id', 'studentId']
+      )
+
+      setFormData({
+        name: group.name || group.group_name || '',
+        course: String(group.course_id || getEntityId(group.course) || getEntityId(group.Course) || ''),
+        room: String(group.room_id || getEntityId(group.room) || getEntityId(group.Room) || ''),
+        teacherId: '',
+        days: buildDaysState(group.week_day || group.days),
+        time: group.start_time || group.time || '09:00',
+        startDate: group.start_date || group.startDate || '',
+        maxStudent: String(group.max_student ?? group.student_limit ?? '0'),
+        description: group.description || ''
+      })
+      setSelectedTeacherIds(teacherIds)
+      setSelectedStudentIds(studentIds)
+    } else {
+      setFormData({ 
+        name: '', course: '', room: '', teacherId: '',
+        days: { Dushanba: false, Seshanba: false, Chorshanba: false, Payshanba: false, Juma: false, Shanba: false, Yakshanba: false }, 
+        time: '09:00', startDate: '', maxStudent: '0', description: ''
+      })
+      setSelectedTeacherIds([])
+      setSelectedStudentIds([])
+    }
+
+    setIsModalOpen(true)
+  }
+
   const closeModal = () => {
     setIsModalOpen(false)
+    setEditingGroup(null)
     setFormData({ 
       name: '', course: '', room: '', teacherId: '',
       days: { Dushanba: false, Seshanba: false, Chorshanba: false, Payshanba: false, Juma: false, Shanba: false, Yakshanba: false }, 
-      time: '09:00', startDate: '', duration: '6 oy', description: '' 
+      time: '09:00', startDate: '', maxStudent: '0', description: ''
     })
     setSelectedTeacherIds([])
     setSelectedStudentIds([])
@@ -114,46 +192,127 @@ function GroupsPage() {
     setActiveGroupId(null)
   }
 
-  const loadAllData = async () => {
+  const getApiItems = (response) => {
+    const data = response?.data || response
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.data)) return data.data
+    if (Array.isArray(data?.data?.data)) return data.data.data
+    if (Array.isArray(data?.data?.groups)) return data.data.groups
+    if (Array.isArray(data?.data?.items)) return data.data.items
+    if (Array.isArray(data?.data?.results)) return data.data.results
+    if (Array.isArray(data?.data?.rows)) return data.data.rows
+    if (Array.isArray(data?.groups)) return data.groups
+    if (Array.isArray(data?.items)) return data.items
+    if (Array.isArray(data?.results)) return data.results
+    if (Array.isArray(data?.rows)) return data.rows
+    if (Array.isArray(data?.list)) return data.list
+    return []
+  }
+
+  const getGroupStudentsCount = (group = {}) => {
+    if (Array.isArray(group.students)) return group.students.length
+    if (Array.isArray(group.Students)) return group.Students.length
+    if (Array.isArray(group.StudentGroup)) return group.StudentGroup.length
+    if (Array.isArray(group.group_students)) return group.group_students.length
+
+    const count = group.studentsCount ?? group.students_count ?? group.student_count ?? group.current_students
+    const parsed = Number(count)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  const getGroupTeachersCount = (group = {}) => {
+    if (Array.isArray(group.teachers)) return group.teachers.length
+    if (Array.isArray(group.Teachers)) return group.Teachers.length
+    if (Array.isArray(group.GroupTeacher)) return group.GroupTeacher.length
+    if (Array.isArray(group.group_teachers)) return group.group_teachers.length
+    if (Array.isArray(group.teacher_ids)) return group.teacher_ids.length
+    if (group.teacher || group.teacher_id || group.teacher_name) return 1
+
+    const count = group.teachersCount ?? group.teachers_count ?? group.teacher_count
+    const parsed = Number(count)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  const getGroupTeacherIds = (group = {}) => {
+    const teacherItems = [
+      ...(Array.isArray(group.teachers) ? group.teachers : []),
+      ...(Array.isArray(group.Teachers) ? group.Teachers : []),
+      ...(Array.isArray(group.GroupTeacher) ? group.GroupTeacher.map(item => item?.Teacher || item?.teacher || item) : []),
+      ...(Array.isArray(group.group_teachers) ? group.group_teachers : []),
+      ...(Array.isArray(group.teacher_ids) ? group.teacher_ids : [])
+    ]
+
+    const ids = teacherItems
+      .map(item => item?.id ?? item?.teacher_id ?? item?.teacherId ?? item)
+      .filter(id => id !== undefined && id !== null && id !== '')
+
+    if (ids.length > 0) return ids.map(String)
+    const singleId = group.teacher_id ?? group.teacherId ?? group.teacher?.id
+    return singleId ? [String(singleId)] : []
+  }
+
+  const loadAllData = async (tab = activeTab) => {
+    const requestId = ++loadRequestRef.current
     setLoading(true)
+    setGroups([])
+
     try {
-      const [groupsRes, coursesRes, roomsRes, teachersRes, studentsRes] = await Promise.allSettled([
-        getJson('/groups/all'),
-        getJson('/courses'),
+      const [groupsRes, coursesRes, roomsRes, teachersRes, studentsRes, studentGroupsRes] = await Promise.allSettled([
+        getJson(tab === 'arxiv' ? GROUPS_ARCHIVE_API : '/groups/all'),
+        getJson(COURSES_API),
         getJson('/rooms'),
         getJson('/teachers'),
-        getJson('/students')
+        getJson('/students'),
+        getJson('/student-group/all')
       ])
 
-      if (groupsRes.status === 'fulfilled') {
-        const data = groupsRes.value.data || groupsRes.value
-        if (Array.isArray(data)) {
-          setGroups(data)
+      if (requestId !== loadRequestRef.current) return
+
+      // Build a map: group_id to student count from /student-group/all
+      let studentCountMap = {}
+      if (studentGroupsRes.status === 'fulfilled') {
+        const sgData = getApiItems(studentGroupsRes.value)
+        if (Array.isArray(sgData)) {
+          sgData.forEach(item => {
+            const gid = item.group_id
+            if (gid !== undefined && gid !== null) {
+              studentCountMap[gid] = (studentCountMap[gid] || 0) + 1
+            }
+          })
         }
+      }
+
+      if (groupsRes.status === 'fulfilled') {
+        const data = getApiItems(groupsRes.value)
+        const enriched = data.map(group => ({
+          ...group,
+          studentsCount: studentCountMap[group.id] ?? getGroupStudentsCount(group),
+          teachersCount: getGroupTeachersCount(group),
+          status: tab === 'arxiv' ? 'Arxiv' : (group.status || group.activity || 'FAOL')
+        }))
+        setGroups(enriched)
       } else {
-        // Fallback static groups matching the user request mockup
-        setGroups([
-          { id: 1, name: 'N26', course: 'Backend', teacher: 'Mohirbek', studentsCount: 1, status: 'FAOL', days: ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma'], time: '09:30', room: 'Autodesk', duration: '6 oy' },
-          { id: 2, name: 'n105', course: 'Backend', teacher: 'Mohirbek', studentsCount: 4, status: 'FAOL', days: ['Seshanba', 'Payshanba', 'Shanba'], time: '16:00', room: 'Autodesk', duration: '6 oy' }
-        ])
+        setGroups([])
       }
 
       if (coursesRes.status === 'fulfilled') {
-        setCourses(coursesRes.value.data || coursesRes.value || [])
+        setCourses(getApiItems(coursesRes.value))
       }
       if (roomsRes.status === 'fulfilled') {
-        setRooms(roomsRes.value.data || roomsRes.value || [])
+        setRooms(getApiItems(roomsRes.value))
       }
       if (teachersRes.status === 'fulfilled') {
-        setTeachers(teachersRes.value.data || teachersRes.value || [])
+        setTeachers(getApiItems(teachersRes.value))
       }
       if (studentsRes.status === 'fulfilled') {
-        setStudents(studentsRes.value.data || studentsRes.value || [])
+        setStudents(getApiItems(studentsRes.value))
       }
     } catch (err) {
       console.error('Error fetching data:', err)
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -161,36 +320,86 @@ function GroupsPage() {
     loadAllData()
   }, [])
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    setSearch('')
+    loadAllData(tab)
+  }
+
+  const handleGroupFilterSubmit = (e) => {
+    e.preventDefault()
+    loadAllData(activeTab)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
       const selectedDays = Object.keys(formData.days).filter(day => formData.days[day])
+      const weekDays = selectedDays.map(day => WEEK_DAY_MAP[day]).filter(Boolean)
       const payload = {
         name: formData.name,
-        course: formData.course,
-        room: formData.room,
         description: formData.description,
-        host_name: '',
-        days: selectedDays,
-        time: formData.time,
+        course_id: Number(formData.course),
+        teachers: selectedTeacherIds.map(Number),
+        students: selectedStudentIds.map(Number),
+        room_id: Number(formData.room),
         start_date: formData.startDate,
-        student_limit: 0,
-        teachers: selectedTeacherIds,
-        students: selectedStudentIds,
+        week_day: weekDays,
+        start_time: formData.time,
+        max_student: Number(formData.maxStudent) || 0
       }
-      const created = await postJson('/groups', payload)
+      const selectedCourse = courses.find(course => String(course.id) === String(formData.course))
+      const selectedRoom = rooms.find(room => String(room.id) === String(formData.room))
+
+      if (editingGroup) {
+        const updated = await patchJson(`${GROUPS_API}/${editingGroup.id}`, payload)
+        const updatedGroup = updated?.data || updated
+        setGroups(prev => prev.map(group =>
+          group.id === editingGroup.id
+            ? {
+                ...group,
+                ...updatedGroup,
+                name: formData.name,
+                course: updatedGroup?.course || selectedCourse || selectedCourse?.name,
+                course_id: Number(formData.course),
+                room: updatedGroup?.room || selectedRoom || selectedRoom?.name,
+                room_id: Number(formData.room),
+                time: formData.time,
+                start_time: formData.time,
+                days: selectedDays,
+                week_day: weekDays,
+                max_student: Number(formData.maxStudent) || 0,
+                teachers: selectedTeacherIds,
+                students: selectedStudentIds,
+                teachersCount: selectedTeacherIds.length,
+                studentsCount: selectedStudentIds.length,
+              }
+            : group
+        ))
+        closeModal()
+        return
+      }
+
+      const created = await postJson(GROUPS_API, payload)
       const createdGroup = created?.data || created
       
       // Real-time local state update
       const newGroup = {
         ...createdGroup,
-        id: createdGroup.id || Date.now(),
+        id: createdGroup?.id || Date.now(),
         name: formData.name,
-        course: formData.course,
-        room: formData.room,
+        course: createdGroup?.course || selectedCourse || selectedCourse?.name,
+        course_id: Number(formData.course),
+        room: createdGroup?.room || selectedRoom || selectedRoom?.name,
+        room_id: Number(formData.room),
         time: formData.time,
+        start_time: formData.time,
         days: selectedDays,
-        duration: formData.duration,
+        week_day: weekDays,
+        max_student: Number(formData.maxStudent) || 0,
+        teachers: selectedTeacherIds,
+        students: selectedStudentIds,
+        teachersCount: selectedTeacherIds.length,
         studentsCount: selectedStudentIds.length,
         status: 'FAOL'
       }
@@ -246,6 +455,18 @@ function GroupsPage() {
     }))
   }
 
+  const deleteGroup = async (id) => {
+    if (!window.confirm("Haqiqatan ham bu guruhni o'chirmoqchimisiz?")) return
+
+    try {
+      await deleteJson(`${GROUPS_API}/${id}`)
+      setGroups(prev => prev.filter(group => group.id !== id))
+    } catch (err) {
+      console.error('Group delete error:', err)
+      alert(err.message || "Guruhni o'chirishda xatolik yuz berdi.")
+    }
+  }
+
   const formatDays = (daysArray) => {
     if (!daysArray || !Array.isArray(daysArray)) return '-'
     const mapping = {
@@ -255,52 +476,84 @@ function GroupsPage() {
       'Payshanba': 'Pay',
       'Juma': 'Ju',
       'Shanba': 'Shan',
-      'Yakshanba': 'Ya'
+      'Yakshanba': 'Ya',
+      'MONDAY': 'Du',
+      'TUESDAY': 'Se',
+      'WEDNESDAY': 'Chor',
+      'THURSDAY': 'Pay',
+      'FRIDAY': 'Ju',
+      'SATURDAY': 'Shan',
+      'SUNDAY': 'Ya'
     }
     return daysArray.map(d => mapping[d] || d).join(', ')
   }
 
   const getTeacherName = (group) => {
     if (group.teacher_name) return group.teacher_name
-    if (group.teacher) return group.teacher
+    if (group.teacher) {
+      if (typeof group.teacher === 'object') {
+        return group.teacher.full_name || group.teacher.name || '-'
+      }
+      return group.teacher
+    }
     if (group.teachers && group.teachers.length > 0) {
       const firstT = group.teachers[0]
-      if (typeof firstT === 'object') {
+      if (firstT && typeof firstT === 'object') {
         return firstT.full_name || firstT.name || '-'
       }
-      const tObj = teachers.find(t => t.id === firstT)
-      return tObj ? (tObj.full_name || tObj.name) : '-'
+      if (firstT) {
+        const tObj = teachers.find(t => t.id === firstT)
+        return tObj ? (tObj.full_name || tObj.name) : '-'
+      }
     }
     return '-'
   }
 
   const getCourseName = (group) => {
-    if (group.course) return group.course
-    if (group.course_name) return group.course_name
+    if (group.course) {
+      if (typeof group.course === 'object') {
+        return group.course.name || group.course.title || '-'
+      }
+      return group.course
+    }
+    if (group.course_name) {
+      if (typeof group.course_name === 'object') {
+        return group.course_name.name || group.course_name.title || '-'
+      }
+      return group.course_name
+    }
     return '-'
   }
 
   const getRoomName = (group) => {
-    if (group.room) return group.room
-    if (group.room_name) return group.room_name
+    if (group.room) {
+      if (typeof group.room === 'object') {
+        return group.room.name || group.room.title || '-'
+      }
+      return group.room
+    }
+    if (group.room_name) {
+      if (typeof group.room_name === 'object') {
+        return group.room_name.name || group.room_name.title || '-'
+      }
+      return group.room_name
+    }
     return '-'
   }
 
   // Filters based on active tab and search query
   const filteredGroups = groups.filter(g => {
     const matchesSearch = (g.name || g.group_name || '').toLowerCase().includes(search.toLowerCase())
-    const isArchived = g.status === 'Arxiv'
-    if (activeTab === 'arxiv') {
-      return matchesSearch && isArchived
-    } else {
-      return matchesSearch && !isArchived
-    }
+    return matchesSearch
   })
 
   // Calculation for top Stats
-  const totalGroupsCount = groups.filter(g => g.status !== 'Arxiv').length
-  const totalTeachersCount = teachers.length
-  const totalStudentsCount = students.length
+  const totalGroupsCount = groups.length
+  const groupTeacherIds = groups.flatMap(group => getGroupTeacherIds(group))
+  const totalTeachersCount = groupTeacherIds.length > 0
+    ? new Set(groupTeacherIds).size
+    : groups.reduce((sum, group) => sum + getGroupTeachersCount(group), 0)
+  const totalStudentsCount = groups.reduce((sum, group) => sum + getGroupStudentsCount(group), 0)
 
   return (
     <div className="students-page animate-fade-in">
@@ -314,14 +567,14 @@ function GroupsPage() {
           <div className="group-tabs-container">
             <button 
               className={`group-tab-btn ${activeTab === 'guruhlar' ? 'active' : ''}`}
-              onClick={() => setActiveTab('guruhlar')}
+              onClick={() => handleTabChange('guruhlar')}
             >
               <Users size={16} />
               Guruhlar
             </button>
             <button 
               className={`group-tab-btn ${activeTab === 'arxiv' ? 'active' : ''}`}
-              onClick={() => setActiveTab('arxiv')}
+              onClick={() => handleTabChange('arxiv')}
             >
               <Clock size={16} />
               Arxiv
@@ -329,7 +582,7 @@ function GroupsPage() {
           </div>
         </div>
         
-        <button className="add-student-btn" onClick={openModal}>
+        <button className="add-student-btn" onClick={() => openModal()}>
           <Plus size={20} />
           Guruh qo'shish
         </button>
@@ -386,7 +639,7 @@ function GroupsPage() {
 
       {/* FILTERS & SEARCH CARD */}
       <div className="students-card">
-        <div className="card-controls">
+        <form className="card-controls" onSubmit={handleGroupFilterSubmit}>
           <div className="search-container">
             <Search size={18} className="search-icon" />
             <input 
@@ -398,16 +651,16 @@ function GroupsPage() {
             />
           </div>
           <div className="action-buttons">
-            <button className="control-btn" onClick={loadAllData} title="Yangilash">
+            <button type="submit" className="control-btn" title="Yangilash">
               <RefreshCw size={18} />
               Yangilash
             </button>
-            <button className="control-btn">
+            <button type="button" className="control-btn">
               <Filter size={18} />
               Filters
             </button>
           </div>
-        </div>
+        </form>
 
         {/* TABLE SECTION */}
         <div className="table-wrapper">
@@ -417,13 +670,13 @@ function GroupsPage() {
                 <th>Status</th>
                 <th>Guruh nomi</th>
                 <th>Kurs</th>
-                <th>Davomiyligi</th>
+                <th>Max o'quvchi</th>
                 <th>Dars vaqti</th>
                 <th>Xona</th>
                 <th>O'qituvchi</th>
                 <th>Talabalar</th>
                 <th className="actions-col" style={{ textAlign: 'right' }}>
-                  <RefreshCw size={14} style={{ cursor: 'pointer' }} onClick={loadAllData} />
+                  <RefreshCw size={14} style={{ cursor: 'pointer' }} onClick={() => loadAllData()} />
                 </th>
               </tr>
             </thead>
@@ -490,18 +743,18 @@ function GroupsPage() {
                       </span>
                     </td>
                     
-                    {/* Davomiyligi */}
+                    {/* Max o'quvchi */}
                     <td>
                       <span className="duration-text">
-                        {group.duration || '6 oy'}
+                        {group.max_student ?? group.student_limit ?? '-'}
                       </span>
                     </td>
                     
                     {/* Dars vaqti */}
                     <td>
                       <div className="time-col-cell">
-                        <span className="time-text">{group.time || '09:00'}</span>
-                        <span className="days-text">{formatDays(group.days)}</span>
+                        <span className="time-text">{group.start_time || group.time || '09:00'}</span>
+                        <span className="days-text">{formatDays(group.week_day || group.days)}</span>
                       </div>
                     </td>
                     
@@ -522,7 +775,7 @@ function GroupsPage() {
                     {/* Talabalar */}
                     <td>
                       <span className="students-count-bold">
-                        {group.studentsCount || group.students_count || 0}
+                        {getGroupStudentsCount(group)}
                       </span>
                     </td>
                     
@@ -531,6 +784,12 @@ function GroupsPage() {
                       <div className="actions-row" style={{ justifyContent: 'flex-end' }}>
                         <button className="action-icon-btn" title="Talaba qo'shish" onClick={() => openStudentModal(group.id)} style={{ color: '#7c3aed' }}>
                           <UserPlus size={16} />
+                        </button>
+                        <button className="action-icon-btn edit" title="Tahrirlash" onClick={() => openModal(group)}>
+                          <Pencil size={16} />
+                        </button>
+                        <button className="action-icon-btn delete" title="O'chirish" onClick={() => deleteGroup(group.id)}>
+                          <Trash2 size={16} />
                         </button>
                         <button className="action-icon-btn" title="Batafsil" onClick={() => navigate(`/groups/${group.id}`)}>
                           <MoreVertical size={16} />
@@ -566,8 +825,10 @@ function GroupsPage() {
           <aside className="group-side-panel" onClick={e => e.stopPropagation()}>
             <div className="group-side-header">
               <div>
-                <h2>Guruh qo'shish</h2>
-                <p className="s-modal-subtitle">Yangi guruh yaratish uchun quyidagi ma'lumotlarni kiriting.</p>
+                <h2>{editingGroup ? 'Guruhni tahrirlash' : "Guruh qo'shish"}</h2>
+                <p className="s-modal-subtitle">
+                  {editingGroup ? "Guruh ma'lumotlarini yangilang." : "Yangi guruh yaratish uchun quyidagi ma'lumotlarni kiriting."}
+                </p>
               </div>
               <button className="s-modal-close" onClick={closeModal} aria-label="close">
                 <X size={20} />
@@ -598,14 +859,8 @@ function GroupsPage() {
                   >
                     <option value="" disabled>Kursni tanlang</option>
                     {courses.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{c.name || c.title}</option>
                     ))}
-                    {courses.length === 0 && (
-                      <>
-                        <option value="Frontend">Frontend</option>
-                        <option value="Backend">Backend</option>
-                      </>
-                    )}
                   </select>
                 </div>
 
@@ -619,26 +874,20 @@ function GroupsPage() {
                   >
                     <option value="" disabled>Xonani tanlang</option>
                     {rooms.map(r => (
-                      <option key={r.id} value={r.name}>{r.name}</option>
+                      <option key={r.id} value={r.id}>{r.name || r.title}</option>
                     ))}
-                    {rooms.length === 0 && (
-                      <>
-                        <option value="Autodesk">Autodesk</option>
-                        <option value="Xona 1">Xona 1</option>
-                        <option value="Xona 2">Xona 2</option>
-                      </>
-                    )}
                   </select>
                 </div>
 
                 <div className="s-form-group">
-                  <label className="s-form-label">Davomiyligi <span>*</span></label>
+                  <label className="s-form-label">Maksimal o'quvchi <span>*</span></label>
                   <input 
-                    type="text" 
+                    type="number"
+                    min="0"
                     className="s-form-input" 
-                    placeholder="Masalan: 6 oy" 
-                    value={formData.duration}
-                    onChange={e => setFormData({...formData, duration: e.target.value})}
+                    placeholder="Masalan: 12"
+                    value={formData.maxStudent}
+                    onChange={e => setFormData({...formData, maxStudent: e.target.value})}
                     required
                   />
                 </div>
@@ -701,7 +950,7 @@ function GroupsPage() {
                     {selectedTeacherIds.length > 0 && (
                       <div className="selected-items-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
                         {selectedTeacherIds.map(id => {
-                          const t = teachers.find(item => item.id === id)
+                          const t = teachers.find(item => String(item.id) === String(id))
                           return (
                             <span key={id} className="selected-item-tag">
                               {t ? (t.full_name || t.name) : `ID: ${id}`}
@@ -732,7 +981,7 @@ function GroupsPage() {
                     {selectedStudentIds.length > 0 && (
                       <div className="selected-items-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
                         {selectedStudentIds.map(id => {
-                          const s = students.find(item => item.id === id)
+                          const s = students.find(item => String(item.id) === String(id))
                           return (
                             <span key={id} className="selected-item-tag">
                               {s ? (s.full_name || s.name) : `ID: ${id}`}

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { getAuthToken } from './api'
 
 // Lazy loading pages for better performance
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -8,26 +9,36 @@ const TeachersPage = lazy(() => import('./pages/TeachersPage'))
 const GroupsPage = lazy(() => import('./pages/GroupsPage'))
 
 // Loading component
-const PageLoader = () => (
-  <div style={{ 
-    height: '100vh', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    background: '#f8fafc'
-  }}>
-    <div className="loader">Yuklanmoqda...</div>
+const PageLoader = () => {
+  const isDark = localStorage.getItem('najot-theme') === 'dark'
+
+  return (
+    <div className={`page-loader ${isDark ? 'dark' : ''}`}>
+      <div className="page-loader-card">
+        <div className="page-loader-mark">
+          <span className="page-loader-ring"></span>
+          <span className="page-loader-logo">N</span>
+        </div>
+        <div className="page-loader-copy">
+          <strong>EduNajot</strong>
+          <span>Ma'lumotlar yuklanmoqda...</span>
+        </div>
+        <div className="page-loader-track">
+          <span></span>
+        </div>
+      </div>
   </div>
-)
+  )
+}
 
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('token')
+  const token = getAuthToken()
   if (!token) return <Navigate to="/" replace />
   return children
 }
 
 const PublicRoute = ({ children }) => {
-  const token = localStorage.getItem('token')
+  const token = getAuthToken()
   if (token) return <Navigate to="/dashboard" replace />
   return children
 }
