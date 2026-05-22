@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { deleteJson, getJson, patchJson, postJson } from '../api'
 import { 
   BookOpen, 
   Home, 
-  MapPin, 
   Users, 
   FileText,
   Plus,
@@ -23,6 +22,22 @@ const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
 const COURSES_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses/archive'
 const COURSE_ONE_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses/one'
 
+const mapCourse = (course, fallback = {}) => ({
+  ...fallback,
+  ...course,
+  id: course?.id ?? course?.course_id ?? course?._id ?? fallback.id,
+  uiId: course?.id ?? course?.course_id ?? course?._id ?? fallback.uiId ?? Date.now(),
+  name: course?.name || course?.title || fallback.name || "Noma'lum kurs",
+  branch: course?.branch || course?.filial || fallback.branch || 'Filial 1',
+  description: course?.description || fallback.description || 'Kurs haqida ma\'lumot.',
+  lessonDuration: course?.duration_hours ? `${course.duration_hours} soat` : course?.lesson_duration || course?.lessonDuration || fallback.lessonDuration || '0 soat',
+  courseLength: course?.duration_month ? `${course.duration_month} oy` : course?.course_length || course?.courseLength || fallback.courseLength || '0 oy',
+  durationMonth: course?.duration_month ?? fallback.durationMonth ?? 0,
+  durationHours: course?.duration_hours ?? fallback.durationHours ?? 0,
+  price: course?.price ? String(course.price) : fallback.price || '0',
+  color: course?.color || fallback.color || '#eff6ff',
+})
+
 function DynamicSubPage({ id }) {
   const [items, setItems] = useState([])
 
@@ -34,7 +49,6 @@ function DynamicSubPage({ id }) {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
-  const [apiLoading, setApiLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [newItem, setNewItem] = useState({
     name: '',
@@ -51,7 +65,6 @@ function DynamicSubPage({ id }) {
   const loadCourses = async (archive = selectedBranch === 'Arxiv') => {
     if (id !== 'kurslar') return
 
-    setApiLoading(true)
     try {
       const res = await getJson(archive ? COURSES_ARCHIVE_API : COURSES_API)
       const data = res?.data || res
@@ -60,11 +73,10 @@ function DynamicSubPage({ id }) {
       console.error('Courses API Error:', err)
       setItems([])
     }
-    setApiLoading(false)
   }
 
   useEffect(() => {
-    loadCourses(false)
+    queueMicrotask(() => loadCourses(false))
   }, [id])
 
   const data = subPageData[id] || { title: 'Sahifa', icon: FileText, desc: 'Ma\'lumot topilmadi.' }
@@ -85,22 +97,6 @@ function DynamicSubPage({ id }) {
       branches: prev.branches.length === branchOptions.length ? [] : branchOptions,
     }))
   }
-
-  const mapCourse = (course, fallback = {}) => ({
-    ...fallback,
-    ...course,
-    id: course?.id ?? course?.course_id ?? course?._id ?? fallback.id,
-    uiId: course?.id ?? course?.course_id ?? course?._id ?? fallback.uiId ?? Date.now(),
-    name: course?.name || course?.title || fallback.name || "Noma'lum kurs",
-    branch: course?.branch || course?.filial || fallback.branch || 'Filial 1',
-    description: course?.description || fallback.description || 'Kurs haqida ma\'lumot.',
-    lessonDuration: course?.duration_hours ? `${course.duration_hours} soat` : course?.lesson_duration || course?.lessonDuration || fallback.lessonDuration || '0 soat',
-    courseLength: course?.duration_month ? `${course.duration_month} oy` : course?.course_length || course?.courseLength || fallback.courseLength || '0 oy',
-    durationMonth: course?.duration_month ?? fallback.durationMonth ?? 0,
-    durationHours: course?.duration_hours ?? fallback.durationHours ?? 0,
-    price: course?.price ? String(course.price) : fallback.price || '0',
-    color: course?.color || fallback.color || '#eff6ff',
-  })
 
   const getCourseId = (course) => course?.id ?? course?.course_id ?? course?._id
 

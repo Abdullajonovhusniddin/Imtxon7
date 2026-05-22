@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { deleteJson, getJson, postJson } from '../api'
 import { 
@@ -33,11 +33,11 @@ import {
   Plus,
   X
 } from 'lucide-react'
-import TeachersPage from './TeachersPage'
-import StudentsPage from './StudentsPage'
-import GroupsPage from './GroupsPage'
-import DynamicSubPage from './DynamicSubPage'
-import GroupDetail from './GroupDetail'
+const TeachersPage = lazy(() => import('./TeachersPage'))
+const StudentsPage = lazy(() => import('./StudentsPage'))
+const GroupsPage = lazy(() => import('./GroupsPage'))
+const DynamicSubPage = lazy(() => import('./DynamicSubPage'))
+const GroupDetail = lazy(() => import('./GroupDetail'))
 
 const menuItems = [
   { id: 'asosiy', label: 'Asosiy', icon: LayoutDashboard, path: '/dashboard' },
@@ -169,14 +169,18 @@ function DashboardPage({ activePage = 'dashboard' }) {
 
   useEffect(() => {
     const pathname = location.pathname.toLowerCase()
+    let nextMenu = 'asosiy'
 
-    if (activePage === 'teachers' || pathname.startsWith('/teachers')) setActiveMenu('oqituvchilar')
-    else if (activePage === 'students' || pathname.startsWith('/students')) setActiveMenu('talabalar')
-    else if (activePage === 'groups' || pathname.startsWith('/groups')) setActiveMenu('guruhlar')
-    else if (activePage === 'gifts' || pathname.startsWith('/gifts')) setActiveMenu('sovgalar')
-    else if (subId) setActiveMenu(subId)
-    else if (activePage === 'dashboard' || pathname === '/dashboard') setActiveMenu('asosiy')
-  }, [subId, activePage, location.pathname])
+    if (activePage === 'teachers' || pathname.startsWith('/teachers')) nextMenu = 'oqituvchilar'
+    else if (activePage === 'students' || pathname.startsWith('/students')) nextMenu = 'talabalar'
+    else if (activePage === 'groups' || pathname.startsWith('/groups')) nextMenu = 'guruhlar'
+    else if (activePage === 'gifts' || pathname.startsWith('/gifts')) nextMenu = 'sovgalar'
+    else if (subId) nextMenu = subId
+
+    if (activeMenu !== nextMenu) {
+      queueMicrotask(() => setActiveMenu(nextMenu))
+    }
+  }, [subId, activePage, location.pathname, activeMenu])
 
   const [submenuOpen, setSubmenuOpen] = useState(false)
 
@@ -395,6 +399,7 @@ function DashboardPage({ activePage = 'dashboard' }) {
         {/* CONTENT */}
         <div className="db-content-area">
           <div className="db-content">
+            <Suspense fallback={<div className="students-card">Yuklanmoqda...</div>}>
 
             {/* ── ASOSIY ── */}
             {activeMenu === 'asosiy' && (
@@ -512,6 +517,7 @@ function DashboardPage({ activePage = 'dashboard' }) {
               />
             )}
 
+            </Suspense>
           </div>
 
           {/* ── GLOBAL CALENDAR DRAWER ── */}
@@ -592,7 +598,7 @@ const ManagementView = ({ activeMenu, subMenuItems, setActiveMenu, navigate, set
 
   useEffect(() => {
     if (activeMenu === 'xonalar') {
-      loadRooms()
+      queueMicrotask(loadRooms)
     }
   }, [activeMenu])
 

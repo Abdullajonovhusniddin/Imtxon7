@@ -317,7 +317,7 @@ function GroupsPage() {
   }
 
   useEffect(() => {
-    loadAllData()
+    queueMicrotask(() => loadAllData())
   }, [])
 
   const handleTabChange = (tab) => {

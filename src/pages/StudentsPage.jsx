@@ -150,7 +150,7 @@ function StudentsPage() {
   }
 
   useEffect(() => {
-    loadData()
+    queueMicrotask(loadData)
   }, [])
 
   const filteredStudents = students.filter(s =>
