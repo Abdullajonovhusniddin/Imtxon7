@@ -5,8 +5,6 @@ import { getAuthToken } from './api'
 // Lazy loading pages for better performance
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
-const TeachersPage = lazy(() => import('./pages/TeachersPage'))
-const GroupsPage = lazy(() => import('./pages/GroupsPage'))
 
 // Loading component
 const PageLoader = () => {

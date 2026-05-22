@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { deleteJson, getJson, postJson } from '../api'
 import { 
@@ -9,27 +9,20 @@ import {
   Gift, 
   Settings, 
   Calendar, 
-  UserPlus, 
-  Wallet, 
-  FileText,
   BookOpen,
   Home,
-  MapPin,
   UserCircle,
   HelpCircle,
   Shield,
   Coins,
   Mail,
-  Info,
   CheckCircle,
   ChevronRight,
   ChevronLeft,
   Search,
-  Globe,
   Sun,
   Moon,
   Bell,
-  LogOut,
   RefreshCw,
   Menu,
   ChevronDown,
@@ -116,8 +109,6 @@ function DashboardPage({ activePage = 'dashboard' }) {
   // ── API STATES (Use these for backend connection) ──
   const [statsData, setStatsData] = useState([])
   const [jadvalData, setJadvalData] = useState([])
-  const [loading, setLoading] = useState(true)
-
   const getInitialMenu = () => {
     const pathname = location.pathname.toLowerCase()
     if (activePage === 'teachers' || pathname.startsWith('/teachers')) return 'oqituvchilar'
@@ -132,11 +123,9 @@ function DashboardPage({ activePage = 'dashboard' }) {
 
   useEffect(() => {
     if (activeMenu !== 'asosiy') {
-      setLoading(false)
       return
     }
     const loadStats = async () => {
-      setLoading(true)
       const results = await Promise.allSettled(
         dashboardStatsConfig.map(item => getJson(item.endpoint))
       )
@@ -164,7 +153,6 @@ function DashboardPage({ activePage = 'dashboard' }) {
                 sinf: item.group || item.room || "Noma'lum",
                 ustoz: item.teacher || item.teacher_name || "Noma'lum",
               })))
-              setLoading(false)
               return
             }
           }
@@ -174,8 +162,6 @@ function DashboardPage({ activePage = 'dashboard' }) {
       }
 
       setJadvalData([])
-
-      setLoading(false)
     }
 
     loadStats()
