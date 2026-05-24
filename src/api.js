@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const DEFAULT_API_BASE = 'https://najot-edu.softwareengineer.uz/api/v1'
+
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE
 
 export const buildApiUrl = (path = '') => {
   if (!path || path.startsWith('http://') || path.startsWith('https://')) return path
@@ -44,10 +46,56 @@ export const getAuthToken = () => {
   return null
 }
 
-export const saveAuth = ({ token, userPhone }) => {
+const parseJwtPayload = (token) => {
+  if (!token || typeof token !== 'string') return null
+
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(
+      atob(normalized)
+        .split('')
+        .map(char => `%${(`00${char.charCodeAt(0).toString(16)}`).slice(-2)}`)
+        .join('')
+    )
+    return JSON.parse(json)
+  } catch {
+    return null
+  }
+}
+
+export const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null')
+  } catch {
+    return null
+  }
+}
+
+export const getUserRole = () => {
+  const storedUser = getStoredUser()
+  const tokenPayload = parseJwtPayload(getAuthToken())
+  const role =
+    storedUser?.role ||
+    storedUser?.Role?.name ||
+    storedUser?.type ||
+    storedUser?.user_role ||
+    tokenPayload?.role ||
+    tokenPayload?.Role?.name ||
+    tokenPayload?.type ||
+    tokenPayload?.user_role
+
+  return role ? String(role).toLowerCase() : ''
+}
+
+export const saveAuth = ({ token, userPhone, user }) => {
   if (token) {
     localStorage.setItem('token', token)
     setCookie('token', token)
+  }
+  if (user) {
+    localStorage.setItem('user', JSON.stringify(user))
   }
   if (userPhone) {
     localStorage.setItem('userPhone', userPhone)
@@ -58,6 +106,7 @@ export const saveAuth = ({ token, userPhone }) => {
 const clearAuth = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('userPhone')
+  localStorage.removeItem('user')
   deleteCookie('token')
   deleteCookie('userPhone')
   if (typeof window !== 'undefined') {

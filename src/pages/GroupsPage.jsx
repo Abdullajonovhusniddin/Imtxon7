@@ -16,11 +16,12 @@ import {
   MoreVertical,
   RefreshCw
 } from 'lucide-react'
-import { deleteJson, getJson, patchJson, postJson } from '../api'
+import { deleteJson, getJson, getUserRole, patchJson, postJson } from '../api'
 
 const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
 const GROUPS_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups'
 const GROUPS_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups/archive'
+const STUDENT_MY_GROUPS_API = '/students/my/groups'
 const WEEK_DAY_MAP = {
   Dushanba: 'MONDAY',
   Seshanba: 'TUESDAY',
@@ -37,6 +38,7 @@ function GroupsPage() {
   const [activeTab, setActiveTab] = useState('guruhlar') // 'guruhlar' or 'arxiv'
   const loadRequestRef = useRef(0)
   const navigate = useNavigate()
+  const isStudentUser = ['student', 'talaba'].includes(getUserRole())
   
   // Dynamic datasets for dropdowns and mapping
   const [courses, setCourses] = useState([])
@@ -209,6 +211,18 @@ function GroupsPage() {
     return []
   }
 
+  const normalizeMyGroup = (item = {}) => {
+    const group = item.group || item.Group || item
+
+    return {
+      ...group,
+      id: group.id || item.group_id || item.groupId || item.id,
+      studentsCount: getGroupStudentsCount(group),
+      teachersCount: getGroupTeachersCount(group),
+      status: group.status || group.activity || 'FAOL'
+    }
+  }
+
   const getGroupStudentsCount = (group = {}) => {
     if (Array.isArray(group.students)) return group.students.length
     if (Array.isArray(group.Students)) return group.Students.length
@@ -257,6 +271,18 @@ function GroupsPage() {
     setGroups([])
 
     try {
+      if (isStudentUser) {
+        const groupsRes = await getJson(STUDENT_MY_GROUPS_API)
+        if (requestId !== loadRequestRef.current) return
+
+        setGroups(getApiItems(groupsRes).map(normalizeMyGroup))
+        setCourses([])
+        setRooms([])
+        setTeachers([])
+        setStudents([])
+        return
+      }
+
       const [groupsRes, coursesRes, roomsRes, teachersRes, studentsRes, studentGroupsRes] = await Promise.allSettled([
         getJson(tab === 'arxiv' ? GROUPS_ARCHIVE_API : '/groups/all'),
         getJson(COURSES_API),
@@ -321,6 +347,7 @@ function GroupsPage() {
   }, [])
 
   const handleTabChange = (tab) => {
+    if (isStudentUser) return
     setActiveTab(tab)
     setSearch('')
     loadAllData(tab)
@@ -556,14 +583,15 @@ function GroupsPage() {
   const totalStudentsCount = groups.reduce((sum, group) => sum + getGroupStudentsCount(group), 0)
 
   return (
-    <div className="students-page animate-fade-in">
+    <div className="students-page animate-fade-in max-lg:!gap-4">
       
       {/* HEADER SECTION */}
-      <div className="students-header">
+      <div className="students-header max-lg:!flex max-lg:!flex-row max-lg:!items-start max-lg:!justify-between max-lg:!gap-4 max-md:!grid max-md:!grid-cols-1 max-md:!gap-3">
         <div className="header-left">
-          <h1 className="page-title">Guruhlar</h1>
+          <h1 className="page-title max-md:!text-3xl max-md:!leading-tight">{isStudentUser ? 'Mening guruhlarim' : 'Guruhlar'}</h1>
           
           {/* TABS SELECTOR */}
+          {!isStudentUser && (
           <div className="group-tabs-container">
             <button 
               className={`group-tab-btn ${activeTab === 'guruhlar' ? 'active' : ''}`}
@@ -580,30 +608,33 @@ function GroupsPage() {
               Arxiv
             </button>
           </div>
+          )}
         </div>
         
-        <button className="add-student-btn" onClick={() => openModal()}>
+        {!isStudentUser && (
+        <button className="add-student-btn max-lg:!w-auto max-lg:!min-w-fit max-lg:!rounded-xl max-md:!w-full max-md:!justify-center" onClick={() => openModal()}>
           <Plus size={20} />
           Guruh qo'shish
         </button>
+        )}
       </div>
 
       {/* STAT CARDS SECTION */}
-      <div className="group-stats-grid">
+      <div className="group-stats-grid max-lg:!grid-cols-3 max-lg:!gap-4 max-md:!grid-cols-1 max-md:!gap-3">
         {/* Card 1: Jami Guruhlar */}
-        <div className="group-stat-card">
+        <div className="group-stat-card max-lg:!translate-y-0 max-lg:!rounded-2xl">
           <div className="group-stat-header">
             <div className="group-stat-icon-wrapper blue">
               <Users size={20} />
             </div>
             <button className="group-stat-more">⋮</button>
           </div>
-          <p className="group-stat-label">Jami guruhlar</p>
+          <p className="group-stat-label">{isStudentUser ? 'Mening guruhlarim' : 'Jami guruhlar'}</p>
           <h2 className="group-stat-value">{totalGroupsCount}</h2>
         </div>
 
         {/* Card 2: O'qituvchilar */}
-        <div className="group-stat-card">
+        <div className="group-stat-card max-lg:!translate-y-0 max-lg:!rounded-2xl">
           <div className="group-stat-header">
             <div className="group-stat-icon-wrapper green">
               <Users size={20} />
@@ -615,7 +646,7 @@ function GroupsPage() {
         </div>
 
         {/* Card 3: O'quvchilar */}
-        <div className="group-stat-card">
+        <div className="group-stat-card max-lg:!translate-y-0 max-lg:!rounded-2xl">
           <div className="group-stat-header">
             <div className="group-stat-icon-wrapper purple">
               <GraduationCap size={20} />
@@ -638,9 +669,9 @@ function GroupsPage() {
       </div>
 
       {/* FILTERS & SEARCH CARD */}
-      <div className="students-card">
-        <form className="card-controls" onSubmit={handleGroupFilterSubmit}>
-          <div className="search-container">
+      <div className="students-card max-md:!rounded-2xl max-sm:!p-3">
+        <form className="card-controls max-lg:!flex max-lg:!flex-row max-md:!grid max-md:!grid-cols-1 max-md:!gap-3" onSubmit={handleGroupFilterSubmit}>
+          <div className="search-container max-md:!max-w-none">
             <Search size={18} className="search-icon" />
             <input 
               type="text" 
@@ -650,12 +681,12 @@ function GroupsPage() {
               className="search-input"
             />
           </div>
-          <div className="action-buttons">
-            <button type="submit" className="control-btn" title="Yangilash">
+          <div className="action-buttons max-lg:!flex max-lg:!flex-row max-md:!grid max-md:!grid-cols-2 max-sm:!grid-cols-1 max-md:!gap-2">
+            <button type="submit" className="control-btn max-md:!justify-center" title="Yangilash">
               <RefreshCw size={18} />
               Yangilash
             </button>
-            <button type="button" className="control-btn">
+            <button type="button" className="control-btn max-md:!justify-center">
               <Filter size={18} />
               Filters
             </button>
@@ -663,8 +694,8 @@ function GroupsPage() {
         </form>
 
         {/* TABLE SECTION */}
-        <div className="table-wrapper">
-          <table className="students-table">
+        <div className="table-wrapper max-md:!-mx-5 max-md:!overflow-x-auto max-md:!px-5">
+          <table className="students-table max-md:!table max-md:!min-w-[920px] max-md:!w-full max-sm:!min-w-[820px]">
             <thead>
               <tr>
                 <th>Status</th>
@@ -713,13 +744,15 @@ function GroupsPage() {
                     {/* Status Switch with label inside/beside */}
                     <td>
                       <div className="group-status-toggle-wrapper">
-                        <button 
-                          className={`group-status-switch ${isFaol ? 'faol' : 'arxiv'}`} 
-                          onClick={() => toggleGroupStatus(group.id)} 
-                          title={isFaol ? "Arxivlash" : 'Faollashtirish'}
-                        >
-                          <span className="switch-dot"></span>
-                        </button>
+                        {!isStudentUser && (
+                          <button 
+                            className={`group-status-switch ${isFaol ? 'faol' : 'arxiv'}`} 
+                            onClick={() => toggleGroupStatus(group.id)} 
+                            title={isFaol ? "Arxivlash" : 'Faollashtirish'}
+                          >
+                            <span className="switch-dot"></span>
+                          </button>
+                        )}
                         <span className={`status-pill-badge ${isFaol ? 'faol' : 'arxiv'}`}>
                           {isFaol ? 'FAOL' : 'ARXIV'}
                         </span>
@@ -782,15 +815,19 @@ function GroupsPage() {
                     {/* Amallar Üç-nokta menusi */}
                     <td style={{ textAlign: 'right' }}>
                       <div className="actions-row" style={{ justifyContent: 'flex-end' }}>
-                        <button className="action-icon-btn" title="Talaba qo'shish" onClick={() => openStudentModal(group.id)} style={{ color: '#7c3aed' }}>
-                          <UserPlus size={16} />
-                        </button>
-                        <button className="action-icon-btn edit" title="Tahrirlash" onClick={() => openModal(group)}>
-                          <Pencil size={16} />
-                        </button>
-                        <button className="action-icon-btn delete" title="O'chirish" onClick={() => deleteGroup(group.id)}>
-                          <Trash2 size={16} />
-                        </button>
+                        {!isStudentUser && (
+                          <>
+                            <button className="action-icon-btn" title="Talaba qo'shish" onClick={() => openStudentModal(group.id)} style={{ color: '#7c3aed' }}>
+                              <UserPlus size={16} />
+                            </button>
+                            <button className="action-icon-btn edit" title="Tahrirlash" onClick={() => openModal(group)}>
+                              <Pencil size={16} />
+                            </button>
+                            <button className="action-icon-btn delete" title="O'chirish" onClick={() => deleteGroup(group.id)}>
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                         <button className="action-icon-btn" title="Batafsil" onClick={() => navigate(`/groups/${group.id}`)}>
                           <MoreVertical size={16} />
                         </button>
@@ -804,7 +841,7 @@ function GroupsPage() {
         </div>
 
         {/* PAGINATION */}
-        <div className="pagination">
+        <div className="pagination max-lg:!static max-lg:!m-0 max-lg:!rounded-none max-lg:!bg-transparent max-lg:!p-0 max-lg:!shadow-none max-sm:!gap-2">
           <button className="pagination-arrow">
             <ChevronLeft size={18} />
             Previous
@@ -821,8 +858,8 @@ function GroupsPage() {
 
       {/* GURUH QO'SHISH SLIDE-OVER */}
       {isModalOpen && (
-        <div className="group-side-overlay" onClick={closeModal}>
-          <aside className="group-side-panel" onClick={e => e.stopPropagation()}>
+        <div className="group-side-overlay max-md:!items-stretch max-md:!justify-end max-md:!p-0" onClick={closeModal}>
+          <aside className="group-side-panel max-md:!h-dvh max-md:!max-h-dvh max-md:!w-full max-md:!max-w-[460px] max-md:!rounded-none max-md:!p-5" onClick={e => e.stopPropagation()}>
             <div className="group-side-header">
               <div>
                 <h2>{editingGroup ? 'Guruhni tahrirlash' : "Guruh qo'shish"}</h2>
@@ -1018,8 +1055,8 @@ function GroupsPage() {
 
       {/* TALABA QO'SHISH MODAL (Guruhga) */}
       {isStudentModalOpen && (
-        <div className="student-modal-overlay" onClick={closeStudentModal}>
-          <div className="student-modal-content" onClick={e => e.stopPropagation()}>
+        <div className="student-modal-overlay max-md:!items-stretch max-md:!justify-end max-md:!p-0" onClick={closeStudentModal}>
+          <div className="student-modal-content max-md:!h-dvh max-md:!max-h-dvh max-md:!w-full max-md:!max-w-[460px] max-md:!rounded-none max-md:!p-5" onClick={e => e.stopPropagation()}>
             <div className="s-modal-header">
               <div>
                 <h2 className="s-modal-title">Talaba qo'shish</h2>
@@ -1070,8 +1107,8 @@ function GroupsPage() {
       )}
       {/* TEACHER SELECT MODAL FOR GROUP CREATION */}
       {isTeacherSelectOpen && (
-        <div className="student-modal-overlay" onClick={() => setIsTeacherSelectOpen(false)}>
-          <div className="student-modal-content" onClick={e => e.stopPropagation()}>
+        <div className="student-modal-overlay max-md:!items-stretch max-md:!justify-end max-md:!p-0" onClick={() => setIsTeacherSelectOpen(false)}>
+          <div className="student-modal-content max-md:!h-dvh max-md:!max-h-dvh max-md:!w-full max-md:!max-w-[460px] max-md:!rounded-none max-md:!p-5" onClick={e => e.stopPropagation()}>
             <div className="s-modal-header">
               <div>
                 <h2 className="s-modal-title">O'qituvchi tanlash</h2>
@@ -1142,8 +1179,8 @@ function GroupsPage() {
 
       {/* STUDENT SELECT MODAL FOR GROUP CREATION */}
       {isStudentSelectOpen && (
-        <div className="student-modal-overlay" onClick={() => setIsStudentSelectOpen(false)}>
-          <div className="student-modal-content" onClick={e => e.stopPropagation()}>
+        <div className="student-modal-overlay max-md:!items-stretch max-md:!justify-end max-md:!p-0" onClick={() => setIsStudentSelectOpen(false)}>
+          <div className="student-modal-content max-md:!h-dvh max-md:!max-h-dvh max-md:!w-full max-md:!max-w-[460px] max-md:!rounded-none max-md:!p-5" onClick={e => e.stopPropagation()}>
             <div className="s-modal-header">
               <div>
                 <h2 className="s-modal-title">Talaba qo'shish</h2>

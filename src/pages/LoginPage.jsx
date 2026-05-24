@@ -31,9 +31,17 @@ function LoginPage() {
         data?.data?.access_token ||
         data?.data?.accessToken ||
         data?.user?.token
+
+      const user =
+        data?.user ||
+        data?.data?.user ||
+        data?.data?.student ||
+        data?.data?.teacher ||
+        data?.student ||
+        data?.teacher
       
       if (token) {
-        saveAuth({ token, userPhone: phone })
+        saveAuth({ token, userPhone: phone, user })
         navigate('/dashboard')
       } else {
         console.error('Token topilmadi! API response tarkibini tekshiring.')
