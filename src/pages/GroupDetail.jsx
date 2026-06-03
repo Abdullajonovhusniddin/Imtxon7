@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { deleteJson, getJson, postJson } from '../api'
+import { deleteJson, getJson, getUserRole, postJson } from '../api'
 import {
   ArrowLeft,
   BarChart3,
+  CheckCircle2,
+  Download,
+  Eye,
   MoreVertical,
+  Plus,
   PlayCircle,
   Trash2,
   Upload,
@@ -20,6 +24,8 @@ const LESSONS_API = '/lessons'
 const LESSONS_BY_GROUP_API = '/lessons/my/group'
 const ATTENDANCE_API = '/attendance'
 const ATTENDANCE_ALL_API = '/attendance/all'
+const HOMEWORK_API = '/homework'
+const FILES_API = '/files'
 // Backend API kerak: guruh bo'yicha o'quv reja mavzulari ro'yxati.
 // Masalan: GET /api/v1/lesson-plans/group/{groupId}
 const WEEK_DAY_LABELS = {
@@ -52,10 +58,13 @@ export default function GroupDetail({ groupId }) {
   const [students, setStudents] = useState([])
   const [schedules, setSchedules] = useState([])
   const [allLessons, setAllLessons] = useState([])
-  const [lessons, setLessons] = useState([])
   const [attendanceRecords, setAttendanceRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingLesson, setSavingLesson] = useState(false)
+  const [lessonsLoaded, setLessonsLoaded] = useState(false)
+  const [attendanceLoaded, setAttendanceLoaded] = useState(false)
+  const [homeworkLoaded, setHomeworkLoaded] = useState(false)
+  const [filesLoaded, setFilesLoaded] = useState(false)
   const [mainTab, setMainTab] = useState('info')
   const [lessonTab, setLessonTab] = useState('exams')
   const [selectedMonth, setSelectedMonth] = useState(0)
@@ -66,7 +75,30 @@ export default function GroupDetail({ groupId }) {
   const [videoFile, setVideoFile] = useState(null)
   const [videoLessonId, setVideoLessonId] = useState('')
   const [videoName, setVideoName] = useState('')
-  const [lessonHistoryDate, setLessonHistoryDate] = useState(new Date().toISOString().slice(0, 10))
+  const [groupFiles, setGroupFiles] = useState([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [homeworks, setHomeworks] = useState([])
+  const [ownHomework, setOwnHomework] = useState(null)
+  const [homeworkResults, setHomeworkResults] = useState([])
+  const [selectedHomeworkId, setSelectedHomeworkId] = useState('')
+  const [selectedResult, setSelectedResult] = useState(null)
+  const [homeworkStatus, setHomeworkStatus] = useState('REJECTED')
+  const [loadingHomework, setLoadingHomework] = useState(false)
+  const [savingHomework, setSavingHomework] = useState(false)
+  const [checkingHomework, setCheckingHomework] = useState(false)
+  const [homeworkForm, setHomeworkForm] = useState({
+    title: '',
+    description: '',
+    lessonId: '',
+    deadline: ''
+  })
+  const [checkForm, setCheckForm] = useState({
+    studentId: '',
+    grade: '',
+    status: 'ACCEPTED',
+    comment: ''
+  })
   const [lessonForm, setLessonForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     topic: '',
@@ -119,10 +151,60 @@ export default function GroupDetail({ groupId }) {
     if (Array.isArray(data?.data?.lessons)) return data.data.lessons
     if (Array.isArray(data?.schedules)) return data.schedules
     if (Array.isArray(data?.lessons)) return data.lessons
+    if (Array.isArray(data?.homeworks)) return data.homeworks
+    if (Array.isArray(data?.homework)) return data.homework
+    if (Array.isArray(data?.homeworkResults)) return data.homeworkResults
+    if (Array.isArray(data?.submissions)) return data.submissions
+    if (Array.isArray(data?.files)) return data.files
+    if (Array.isArray(data?.data?.files)) return data.data.files
     if (Array.isArray(data?.items)) return data.items
     if (Array.isArray(data?.results)) return data.results
     if (Array.isArray(data?.rows)) return data.rows
     return []
+  }
+
+  const normalizeHomeworks = (response) => {
+    return getApiItems(response).map(item => ({
+      id: item.id || item.homework_id || item.homeworkId,
+      groupId: item.group_id || item.groupId || item.group?.id || item.Group?.id,
+      lessonId: item.lesson_id || item.lessonId || item.lesson?.id || item.Lesson?.id,
+      title: item.title || item.name || item.topic || item.lesson?.topic || item.Lesson?.topic || 'Uyga vazifa',
+      description: item.description || item.text || item.body || item.comment || '',
+      fileUrl: item.file_url || item.fileUrl || item.url || item.attachment || item.file,
+      deadline: item.deadline || item.due_date || item.dueDate || item.end_date || item.endDate || '',
+      createdAt: item.created_at || item.createdAt || item.date || ''
+    }))
+  }
+
+  const normalizeHomeworkResults = (response) => {
+    return getApiItems(response).map(item => {
+      const student = item.student || item.Student || item.user || item.User || {}
+      const studentName = student.full_name || student.name || item.student_name || item.full_name || "Noma'lum"
+
+      return {
+        id: item.id || item.result_id || item.resultId || `${item.student_id || student.id}-${item.homework_id || item.homeworkId}`,
+        studentId: item.student_id || item.studentId || student.id || item.user_id || item.userId,
+        studentName,
+        status: item.status || item.result_status || item.state || '-',
+        grade: item.grade ?? item.score ?? item.mark ?? '-',
+        comment: item.comment || item.feedback || item.teacher_comment || '',
+        submittedAt: item.submitted_at || item.submittedAt || item.created_at || item.createdAt || '',
+        fileUrl: item.file_url || item.fileUrl || item.url || item.attachment || item.file
+      }
+    })
+  }
+
+  const normalizeFiles = (response) => {
+    return getApiItems(response).map(item => ({
+      id: item.id || item.file_id || item.fileId || item.name || item.original_name,
+      lessonId: item.lesson_id || item.lessonId || item.lesson?.id || item.Lesson?.id,
+      name: item.name || item.file_name || item.fileName || item.original_name || item.originalName || item.title || 'Fayl',
+      lessonName: item.lesson?.topic || item.Lesson?.topic || item.lesson_name || item.lessonName || item.topic || '-',
+      url: item.url || item.file_url || item.fileUrl || item.path || item.location,
+      type: item.type || item.mime_type || item.mimeType || item.mimetype || '-',
+      size: item.size || item.file_size || item.fileSize || '',
+      createdAt: item.created_at || item.createdAt || item.uploaded_at || item.uploadedAt || item.date || ''
+    }))
   }
 
   const normalizeSchedules = (response) => {
@@ -182,6 +264,14 @@ export default function GroupDetail({ groupId }) {
     const date = new Date(value)
     if (!isNaN(date)) return date.toLocaleDateString('uz-UZ', { day: '2-digit', month: 'short', year: 'numeric' })
     return String(value)
+  }
+
+  const formatFileSize = (value) => {
+    const size = Number(value)
+    if (!size) return '-'
+    if (size < 1024) return `${size} B`
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`
   }
 
   const formatScheduleDay = (value) => {
@@ -249,34 +339,126 @@ export default function GroupDetail({ groupId }) {
     try {
       const response = await getJson(LESSONS_API)
       return filterGroupLessons(normalizeLessons(response))
-    } catch (err) {
+    } catch {
       const response = await getJson(`${LESSONS_BY_GROUP_API}/${groupId}`)
       return normalizeLessons(response)
     }
   }
 
-  const loadAttendance = async () => {
+  const loadHomeworks = async (force = false) => {
+    if (homeworkLoaded && !force) return homeworks
+    setLoadingHomework(true)
+    try {
+      let normalized = []
+      try {
+        normalized = normalizeHomeworks(await getJson(`${HOMEWORK_API}/${groupId}`))
+      } catch {
+        normalized = normalizeHomeworks(await getJson(`${HOMEWORK_API}/all`))
+          .filter(item => !item.groupId || String(item.groupId) === String(groupId))
+      }
+
+      setHomeworks(normalized)
+      setHomeworkLoaded(true)
+      const firstHomeworkId = normalized[0]?.id || ''
+      setSelectedHomeworkId(prev => prev || firstHomeworkId)
+      if (firstHomeworkId) await loadHomeworkResults(firstHomeworkId, homeworkStatus)
+      return normalized
+    } catch (err) {
+      console.error('Homework load error', err)
+      setHomeworks([])
+      setHomeworkLoaded(true)
+      return []
+    } finally {
+      setLoadingHomework(false)
+    }
+  }
+
+  const loadOwnHomework = async (lessonId) => {
+    if (!lessonId) return
+    try {
+      const response = await getJson(`${HOMEWORK_API}/own/${lessonId}`)
+      setOwnHomework(normalizeHomeworks(response)[0] || response?.data || response)
+    } catch (err) {
+      console.error('Own homework load error', err)
+      setOwnHomework(null)
+    }
+  }
+
+  const loadHomeworkResults = async (homeworkId = selectedHomeworkId, status = homeworkStatus) => {
+    if (!homeworkId) {
+      setHomeworkResults([])
+      return
+    }
+
+    const query = status ? `?status=${encodeURIComponent(status)}` : ''
+    try {
+      const response = await getJson(`/group/${groupId}/homework/${homeworkId}/results${query}`)
+      setHomeworkResults(normalizeHomeworkResults(response))
+    } catch (err) {
+      console.error('Homework results load error', err)
+      setHomeworkResults([])
+    }
+  }
+
+  const loadStudentHomeworkResult = async (homeworkId, studentId) => {
+    if (!homeworkId || !studentId) return
+    try {
+      const response = await getJson(`/group/${groupId}/homework/${homeworkId}/result/${studentId}`)
+      const normalized = normalizeHomeworkResults(response)
+      setSelectedResult(normalized[0] || response?.data || response)
+    } catch (err) {
+      console.error('Student homework result load error', err)
+      setSelectedResult(null)
+    }
+  }
+
+  const loadFiles = async (force = false) => {
+    if (filesLoaded && !force) return groupFiles
+    setLoadingFiles(true)
+    try {
+      const response = await getJson(`${FILES_API}/${groupId}`)
+      const normalized = normalizeFiles(response)
+      setGroupFiles(normalized)
+      setFilesLoaded(true)
+      return normalized
+    } catch (err) {
+      console.error('Group files load error', err)
+      setGroupFiles([])
+      setFilesLoaded(true)
+      return []
+    } finally {
+      setLoadingFiles(false)
+    }
+  }
+
+  const loadAttendance = async (force = false) => {
+    if (attendanceLoaded && !force) return attendanceRecords
     try {
       const response = await getJson(ATTENDANCE_ALL_API)
       const normalized = filterGroupAttendance(normalizeAttendance(response))
       setAttendanceRecords(normalized)
+      setAttendanceLoaded(true)
       return normalized
     } catch (err) {
       console.error('Attendance load error', err)
       setAttendanceRecords([])
+      setAttendanceLoaded(true)
       return []
     }
   }
 
-  const loadLessons = async (date = lessonHistoryDate) => {
+  const loadLessons = async (force = false) => {
+    if (lessonsLoaded && !force) return allLessons
     try {
       const normalized = await fetchGroupLessons()
       setAllLessons(normalized)
-      setLessons(date ? normalized.filter(lesson => lesson.date?.slice(0, 10) === date) : normalized)
+      setLessonsLoaded(true)
+      return normalized
     } catch (err) {
       console.error('Group lessons load error', err)
       setAllLessons([])
-      setLessons([])
+      setLessonsLoaded(true)
+      return []
     }
   }
 
@@ -317,8 +499,8 @@ export default function GroupDetail({ groupId }) {
         )
       }
 
-      await loadLessons(lessonHistoryDate)
-      await loadAttendance()
+      await loadLessons(true)
+      if (attendanceLoaded) await loadAttendance(true)
       setLessonForm({
         date: new Date().toISOString().slice(0, 10),
         topic: '',
@@ -336,7 +518,7 @@ export default function GroupDetail({ groupId }) {
 
   const openVideoModal = () => {
     setVideoFile(null)
-    setVideoLessonId('')
+    setVideoLessonId(allLessons[0]?.id ? String(allLessons[0].id) : '')
     setVideoName('')
     setIsVideoModalOpen(true)
   }
@@ -354,10 +536,69 @@ export default function GroupDetail({ groupId }) {
     setVideoName(file.name)
   }
 
-  const handleVideoUpload = (e) => {
+  const handleVideoUpload = async (e) => {
     e.preventDefault()
     if (!videoFile || !videoLessonId || !videoName.trim()) return
-    alert('Video yuklash API berilgandan keyin ulanadi.')
+    setUploadingFile(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', videoFile)
+      formData.append('name', videoName.trim())
+
+      await postJson(`${FILES_API}/group/${groupId}/upload?lessonId=${encodeURIComponent(videoLessonId)}`, formData)
+      closeVideoModal()
+      await loadFiles(true)
+    } catch (err) {
+      console.error('Group file upload error', err)
+      alert(err.message || 'Fayl yuklashda xatolik yuz berdi.')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  const handleHomeworkSubmit = async (e) => {
+    e.preventDefault()
+    if (savingHomework || !homeworkForm.title.trim()) return
+
+    setSavingHomework(true)
+    try {
+      await postJson(HOMEWORK_API, {
+        title: homeworkForm.title.trim(),
+        description: homeworkForm.description,
+        group_id: Number(groupId) || groupId,
+        lesson_id: Number(homeworkForm.lessonId) || homeworkForm.lessonId || undefined,
+        deadline: homeworkForm.deadline || undefined
+      })
+      setHomeworkForm({ title: '', description: '', lessonId: '', deadline: '' })
+      await loadHomeworks(true)
+    } catch (err) {
+      console.error('Homework save error', err)
+      alert(err.message || "Uy vazifa qo'shishda xatolik yuz berdi.")
+    } finally {
+      setSavingHomework(false)
+    }
+  }
+
+  const handleHomeworkCheck = async (e) => {
+    e.preventDefault()
+    if (checkingHomework || !selectedHomeworkId || !checkForm.studentId) return
+
+    setCheckingHomework(true)
+    try {
+      await postJson(`/group/${groupId}/homework/${selectedHomeworkId}/check`, {
+        student_id: Number(checkForm.studentId) || checkForm.studentId,
+        grade: checkForm.grade === '' ? undefined : Number(checkForm.grade) || checkForm.grade,
+        status: checkForm.status,
+        comment: checkForm.comment
+      })
+      setCheckForm({ studentId: '', grade: '', status: 'ACCEPTED', comment: '' })
+      await loadHomeworkResults()
+    } catch (err) {
+      console.error('Homework check error', err)
+      alert(err.message || 'Uy vazifani tekshirishda xatolik yuz berdi.')
+    } finally {
+      setCheckingHomework(false)
+    }
   }
 
   const deleteGroup = async () => {
@@ -375,14 +616,24 @@ export default function GroupDetail({ groupId }) {
   useEffect(() => {
     const load = async () => {
       setLoading(true)
+      setAllLessons([])
+      setAttendanceRecords([])
+      setHomeworks([])
+      setHomeworkResults([])
+      setOwnHomework(null)
+      setSelectedHomeworkId('')
+      setSelectedResult(null)
+      setGroupFiles([])
+      setLessonsLoaded(false)
+      setAttendanceLoaded(false)
+      setHomeworkLoaded(false)
+      setFilesLoaded(false)
 
       try {
-        const [groupRes, studentsRes, schedulesRes, lessonsRes, attendanceRes] = await Promise.allSettled([
+        const [groupRes, studentsRes, schedulesRes] = await Promise.allSettled([
           getJson(`${GROUPS_API}/${groupId}`),
           getJson(`${GROUP_STUDENTS_API}/${groupId}`),
           getJson(`${GROUPS_API}/${groupId}/schedules`),
-          fetchGroupLessons(),
-          getJson(ATTENDANCE_ALL_API),
         ])
 
         if (groupRes.status === 'fulfilled') {
@@ -411,22 +662,6 @@ export default function GroupDetail({ groupId }) {
           console.error('Group schedules load error', schedulesRes.reason)
         }
 
-        if (lessonsRes.status === 'fulfilled') {
-          const normalized = lessonsRes.value
-          setAllLessons(normalized)
-          setLessons(normalized.filter(lesson => lesson.date?.slice(0, 10) === lessonHistoryDate))
-        } else {
-          setAllLessons([])
-          setLessons([])
-          console.error('Group lessons load error', lessonsRes.reason)
-        }
-
-        if (attendanceRes.status === 'fulfilled') {
-          setAttendanceRecords(filterGroupAttendance(normalizeAttendance(attendanceRes.value)))
-        } else {
-          setAttendanceRecords([])
-          console.error('Attendance load error', attendanceRes.reason)
-        }
       } catch (err) {
         console.error('Group detail load error', err)
       }
@@ -437,11 +672,42 @@ export default function GroupDetail({ groupId }) {
     load()
   }, [groupId])
 
+  const handleMainTabChange = async (tab) => {
+    setMainTab(tab)
+    if (tab === 'lessons') {
+      await loadLessons()
+    }
+    if (tab === 'attendance') {
+      await loadAttendance()
+    }
+  }
+
+  const handleLessonTabChange = async (tab) => {
+    setLessonTab(tab)
+
+    if (tab === 'homework') {
+      const loadedLessons = await loadLessons()
+      const firstLessonId = loadedLessons[0]?.id
+      if (firstLessonId) {
+        setHomeworkForm(prev => ({ ...prev, lessonId: prev.lessonId || String(firstLessonId) }))
+        await loadOwnHomework(firstLessonId)
+      }
+      await loadHomeworks()
+    }
+
+    if (tab === 'videos') {
+      await loadLessons()
+      await loadFiles()
+    }
+  }
+
   if (loading) return <div className="students-card">Yuklanmoqda...</div>
   if (!group) return <div className="students-card">Guruh topilmadi</div>
 
   const lessonDays = buildLessonDays()
   const canEditAttendance = lessonSource === 'plan' ? Boolean(selectedPlanId) : Boolean(lessonForm.topic.trim())
+  const userRole = getUserRole()
+  const canManageHomework = ['superadmin', 'admin', 'teacher'].includes(userRole)
   const attendancePresentCount = attendanceRecords.filter(record => record.isPresent).length
   const attendanceAbsentCount = attendanceRecords.length - attendancePresentCount
   const examRows = allLessons.length > 0 ? allLessons : [
@@ -449,12 +715,7 @@ export default function GroupDetail({ groupId }) {
     { id: 6, topic: 'Examination', date: '2026-04-24', attendanceCount: 12, status: 'Tugagan' },
     { id: 5, topic: 'Examination', date: '2026-03-26', attendanceCount: 14, status: 'Tugagan' }
   ]
-  const videoRows = allLessons.length > 0 ? allLessons.slice(0, 4) : [
-    { id: 1, topic: 'Nodejs', date: '2026-05-14' },
-    { id: 2, topic: 'Html asoslari', date: '2026-05-12' },
-    { id: 3, topic: 'Takrorlash', date: '2026-05-19' },
-    { id: 4, topic: 'State and Props', date: '2026-05-21' }
-  ]
+  const videoRows = groupFiles
 
   return (
     <div className="erp-group-page">
@@ -478,9 +739,9 @@ export default function GroupDetail({ groupId }) {
       </header>
 
       <nav className="erp-main-tabs">
-        <button className={mainTab === 'info' ? 'active' : ''} onClick={() => setMainTab('info')}>Ma'lumotlar</button>
-        <button className={mainTab === 'lessons' ? 'active' : ''} onClick={() => setMainTab('lessons')}>Guruh darsliklari</button>
-        <button className={mainTab === 'attendance' ? 'active' : ''} onClick={() => setMainTab('attendance')}>Akademik davomati</button>
+        <button className={mainTab === 'info' ? 'active' : ''} onClick={() => handleMainTabChange('info')}>Ma'lumotlar</button>
+        <button className={mainTab === 'lessons' ? 'active' : ''} onClick={() => handleMainTabChange('lessons')}>Guruh darsliklari</button>
+        <button className={mainTab === 'attendance' ? 'active' : ''} onClick={() => handleMainTabChange('attendance')}>Akademik davomati</button>
       </nav>
 
       {mainTab === 'info' && (
@@ -548,27 +809,200 @@ export default function GroupDetail({ groupId }) {
             <h2>Guruh darsliklari</h2>
             <div className="erp-sub-tabs">
               {lessonTabs.map(tab => (
-                <button key={tab.id} className={lessonTab === tab.id ? 'active' : ''} onClick={() => setLessonTab(tab.id)}>
+                <button key={tab.id} className={lessonTab === tab.id ? 'active' : ''} onClick={() => handleLessonTabChange(tab.id)}>
                   {tab.label}
                 </button>
               ))}
             </div>
-            {lessonTab === 'videos' && (
+            {lessonTab === 'videos' && canManageHomework && (
               <button className="erp-primary-btn" onClick={openVideoModal}>
                 <Upload size={18} />
-                Qo'shish
+                Fayl yuklash
               </button>
             )}
             {lessonTab === 'exams' && <button className="erp-primary-btn">Yangi imtihon</button>}
           </div>
 
           {lessonTab === 'homework' && (
-            <div className="erp-panel erp-homework-preview">
-              <div className="erp-breadcrumb">Kutatoyganlar <span>/</span> Uyga vazifa</div>
-              <div className="erp-task-card">
-                <h3>Uyga vazifa</h3>
-                <p>API berilgandan keyin bu yerda berilgan vazifalar, topshirilgan ishlar va tekshirish oynasi chiqadi.</p>
+            <div className="erp-homework-grid">
+              <div className="erp-panel erp-homework-preview">
+                <div className="erp-breadcrumb">{getGroupName()} <span>/</span> Uyga vazifa</div>
+                <div className="erp-homework-actions">
+                  <select value={selectedHomeworkId} onChange={e => {
+                    const nextHomeworkId = e.target.value
+                    setSelectedHomeworkId(nextHomeworkId)
+                    setSelectedResult(null)
+                    loadHomeworkResults(nextHomeworkId, homeworkStatus)
+                  }}>
+                    <option value="">Vazifani tanlang</option>
+                    {homeworks.map(item => (
+                      <option key={item.id} value={item.id}>{item.title}</option>
+                    ))}
+                  </select>
+                  <select value={homeworkStatus} onChange={e => {
+                    const nextStatus = e.target.value
+                    setHomeworkStatus(nextStatus)
+                    loadHomeworkResults(selectedHomeworkId, nextStatus)
+                  }}>
+                    <option value="">Barcha statuslar</option>
+                    <option value="REJECTED">REJECTED</option>
+                    <option value="ACCEPTED">ACCEPTED</option>
+                    <option value="PENDING">PENDING</option>
+                  </select>
+                  <button className="erp-outline-btn" onClick={() => loadHomeworkResults()}>
+                    <Eye size={18} />
+                    Natijalar
+                  </button>
+                </div>
+
+                {loadingHomework ? (
+                  <div className="erp-empty-table">Uy vazifalar yuklanmoqda...</div>
+                ) : homeworks.length > 0 ? (
+                  <div className="erp-homework-list">
+                    {homeworks.map(item => (
+                      <article key={item.id || item.title} className="erp-task-card">
+                        <div className="erp-task-head">
+                          <h3>{item.title}</h3>
+                          <span className="erp-status neutral">Lesson #{item.lessonId || '-'}</span>
+                        </div>
+                        <p>{item.description || "Tavsif yo'q"}</p>
+                        <div className="erp-task-meta">
+                          <span>Muddat: {formatDate(item.deadline)}</span>
+                          {item.fileUrl && (
+                            <a href={item.fileUrl} target="_blank" rel="noreferrer" className="erp-link-cell">
+                              <Download size={18} />
+                              Yuklab olish
+                            </a>
+                          )}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="erp-empty-table">Bu guruh uchun uy vazifa topilmadi.</div>
+                )}
+
+                {ownHomework && (
+                  <div className="erp-own-homework">
+                    <strong>Talaba uchun lesson bo'yicha vazifa</strong>
+                    <span>{ownHomework.title || ownHomework.name || 'Uyga vazifa'}</span>
+                    {(ownHomework.fileUrl || ownHomework.file_url || ownHomework.url) && (
+                      <a href={ownHomework.fileUrl || ownHomework.file_url || ownHomework.url} target="_blank" rel="noreferrer">
+                        Yuklab olish
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {canManageHomework && (
+                <form className="erp-panel erp-homework-form" onSubmit={handleHomeworkSubmit}>
+                  <div className="erp-panel-title"><Plus size={18} /> Yangi uy vazifa</div>
+                  <label className="erp-field">
+                    <span><b>*</b> Nomi</span>
+                    <input value={homeworkForm.title} onChange={e => setHomeworkForm(prev => ({ ...prev, title: e.target.value }))} placeholder="Masalan: React props mashqi" required />
+                  </label>
+                  <label className="erp-field">
+                    <span>Dars</span>
+                    <select value={homeworkForm.lessonId} onChange={e => setHomeworkForm(prev => ({ ...prev, lessonId: e.target.value }))}>
+                      <option value="">Darsni tanlang</option>
+                      {allLessons.map((lesson, index) => (
+                        <option key={lesson.id || index} value={lesson.id || index}>{lesson.topic}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="erp-field">
+                    <span>Muddat</span>
+                    <input type="date" value={homeworkForm.deadline} onChange={e => setHomeworkForm(prev => ({ ...prev, deadline: e.target.value }))} />
+                  </label>
+                  <label className="erp-field">
+                    <span>Tavsif</span>
+                    <textarea value={homeworkForm.description} onChange={e => setHomeworkForm(prev => ({ ...prev, description: e.target.value }))} placeholder="Vazifa matni..." />
+                  </label>
+                  <button className="erp-primary-btn" type="submit" disabled={savingHomework || !homeworkForm.title.trim()}>
+                    {savingHomework ? 'Saqlanmoqda...' : "Qo'shish"}
+                  </button>
+                </form>
+              )}
+
+              <div className="erp-table-card">
+                <table className="erp-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>O'quvchi</th>
+                      <th>Status</th>
+                      <th>Baho</th>
+                      <th>Topshirgan vaqti</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {homeworkResults.length > 0 ? homeworkResults.map((row, index) => (
+                      <tr key={row.id || index}>
+                        <td>{index + 1}</td>
+                        <td>{row.studentName}</td>
+                        <td><span className={`erp-status ${row.status === 'REJECTED' ? 'neutral' : 'soft'}`}>{row.status}</span></td>
+                        <td>{row.grade}</td>
+                        <td>{formatDate(row.submittedAt)}</td>
+                        <td>
+                          <button className="erp-link-cell" onClick={() => {
+                            setCheckForm(prev => ({ ...prev, studentId: row.studentId || '' }))
+                            loadStudentHomeworkResult(selectedHomeworkId, row.studentId)
+                          }}>
+                            <Eye size={18} />
+                            Ko'rish
+                          </button>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan="6">Natijalar topilmadi.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {canManageHomework && (
+                <form className="erp-panel erp-homework-form" onSubmit={handleHomeworkCheck}>
+                  <div className="erp-panel-title"><CheckCircle2 size={18} /> Tekshirish</div>
+                  {selectedResult && (
+                    <div className="erp-own-homework">
+                      <strong>{selectedResult.studentName || "O'quvchi"}</strong>
+                      <span>{selectedResult.comment || "Izoh yo'q"}</span>
+                    </div>
+                  )}
+                  <label className="erp-field">
+                    <span><b>*</b> O'quvchi</span>
+                    <select value={checkForm.studentId} onChange={e => setCheckForm(prev => ({ ...prev, studentId: e.target.value }))} required>
+                      <option value="">O'quvchini tanlang</option>
+                      {students.map(student => (
+                        <option key={student.id} value={student.id}>{student.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="erp-field">
+                    <span>Status</span>
+                    <select value={checkForm.status} onChange={e => setCheckForm(prev => ({ ...prev, status: e.target.value }))}>
+                      <option value="ACCEPTED">ACCEPTED</option>
+                      <option value="REJECTED">REJECTED</option>
+                      <option value="PENDING">PENDING</option>
+                    </select>
+                  </label>
+                  <label className="erp-field">
+                    <span>Baho</span>
+                    <input type="number" value={checkForm.grade} onChange={e => setCheckForm(prev => ({ ...prev, grade: e.target.value }))} placeholder="100" />
+                  </label>
+                  <label className="erp-field">
+                    <span>Izoh</span>
+                    <textarea value={checkForm.comment} onChange={e => setCheckForm(prev => ({ ...prev, comment: e.target.value }))} placeholder="Tekshiruv izohi..." />
+                  </label>
+                  <button className="erp-primary-btn purple" type="submit" disabled={checkingHomework || !selectedHomeworkId || !checkForm.studentId}>
+                    {checkingHomework ? 'Tekshirilmoqda...' : 'Tekshirish'}
+                  </button>
+                </form>
+              )}
             </div>
           )}
 
@@ -578,28 +1012,43 @@ export default function GroupDetail({ groupId }) {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Video nomi</th>
+                    <th>Fayl nomi</th>
                     <th>Dars nomi</th>
-                    <th>Status</th>
-                    <th>Dars sanasi</th>
+                    <th>Turi</th>
                     <th>Hajmi</th>
-                    <th>Qo'shilgan vaqti</th>
+                    <th>Yuklangan vaqti</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {videoRows.map((row, index) => (
+                  {loadingFiles ? (
+                    <tr>
+                      <td colSpan="7">Fayllar yuklanmoqda...</td>
+                    </tr>
+                  ) : videoRows.length > 0 ? videoRows.map((row, index) => (
                     <tr key={row.id || index}>
                       <td>{index + 1}</td>
-                      <td><button className="erp-link-cell"><PlayCircle size={18} /> Bitiruv.mp4</button></td>
-                      <td>{row.topic}</td>
-                      <td><span className="erp-status soft">Tayyor</span></td>
-                      <td>{formatDate(row.date)}</td>
-                      <td>3.53 MB</td>
-                      <td>{formatDate(row.date)}</td>
+                      <td>
+                        {row.url ? (
+                          <a className="erp-link-cell" href={row.url} target="_blank" rel="noreferrer">
+                            <Download size={18} />
+                            {row.name || 'Fayl'}
+                          </a>
+                        ) : (
+                          <span className="erp-link-cell"><PlayCircle size={18} /> {row.name || row.topic || 'Fayl'}</span>
+                        )}
+                      </td>
+                      <td>{row.lessonName || row.topic || '-'}</td>
+                      <td><span className="erp-status neutral">{row.type || '-'}</span></td>
+                      <td>{formatFileSize(row.size)}</td>
+                      <td>{formatDate(row.createdAt || row.date)}</td>
                       <td><MoreVertical size={18} /></td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan="7">Bu guruh uchun fayllar topilmadi.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -772,7 +1221,7 @@ export default function GroupDetail({ groupId }) {
         <div className="erp-modal-overlay" onClick={closeVideoModal}>
           <div className="erp-video-modal" onClick={e => e.stopPropagation()}>
             <div className="erp-video-modal-head">
-              <h2>Qo'shish</h2>
+              <h2>Fayl yuklash</h2>
               <button onClick={closeVideoModal} aria-label="Yopish">
                 <X size={22} />
               </button>
@@ -789,14 +1238,14 @@ export default function GroupDetail({ groupId }) {
               >
                 <input
                   type="file"
-                  accept=".mp4,.webm,.mpeg,.avi,.mkv,.m4v,.ogm,.mov,video/*"
+                  accept="*/*"
                   onChange={e => handleVideoFile(e.target.files?.[0])}
                 />
                 <span className="erp-upload-box">
                   <Upload size={38} />
                 </span>
-                <strong>Videofaylni yuklash uchun ushbu hudud ustiga bosing yoki faylni shu yerga olib keling</strong>
-                <small>Videofayl: .mp4, .webm, .mpeg, .avi, .mkv, .m4v, .ogm, .mov formatlaridan birida bo'lishi kerak</small>
+                <strong>Faylni yuklash uchun ushbu hudud ustiga bosing yoki faylni shu yerga olib keling</strong>
+                <small>Darslik, rasm, video yoki qo'shimcha material fayllarini yuklash mumkin</small>
               </label>
 
               {videoFile && (
@@ -804,7 +1253,7 @@ export default function GroupDetail({ groupId }) {
                   <div className="erp-video-file-head">
                     <span>File name</span>
                     <span><b>*</b> Dars</span>
-                    <span><b>*</b> Video nomi</span>
+                    <span><b>*</b> Fayl nomi</span>
                     <span>Actions</span>
                   </div>
                   <div className="erp-video-file-row">
@@ -834,8 +1283,8 @@ export default function GroupDetail({ groupId }) {
               <div className="erp-video-modal-actions">
                 <button type="button" onClick={closeVideoModal}>Bekor qilish</button>
                 {videoFile && (
-                  <button type="submit" disabled={!videoLessonId || !videoName.trim()}>
-                    Fayllarni yuklash
+                  <button type="submit" disabled={uploadingFile || !videoLessonId || !videoName.trim()}>
+                    {uploadingFile ? 'Yuklanmoqda...' : 'Faylni yuklash'}
                   </button>
                 )}
               </div>

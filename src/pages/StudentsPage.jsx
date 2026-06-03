@@ -98,6 +98,7 @@ function StudentsPage() {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [availableGroups, setAvailableGroups] = useState([])
+  const [groupsLoaded, setGroupsLoaded] = useState(false)
   const [groupSearch, setGroupSearch] = useState('')
   const [selectedGroups, setSelectedGroups] = useState([])
   const [isGroupAssignOpen, setIsGroupAssignOpen] = useState(false)
@@ -146,9 +147,24 @@ function StudentsPage() {
     resetForm()
   }
 
+  const loadGroupsForAssign = async () => {
+    if (groupsLoaded) return
+    try {
+      const groupsResponse = await getJson('/groups/all')
+      const groupsData = groupsResponse.data || groupsResponse
+      if (Array.isArray(groupsData)) {
+        setAvailableGroups(groupsData)
+      }
+      setGroupsLoaded(true)
+    } catch (err) {
+      console.error('Groups API Error:', err)
+    }
+  }
+
   const openGroupAssign = () => {
     setGroupSearch('')
     setIsGroupAssignOpen(true)
+    loadGroupsForAssign()
   }
 
   const closeGroupAssign = () => {
@@ -232,16 +248,6 @@ function StudentsPage() {
       console.error('Students API Error:', err)
       setApiError("Talabalar ma'lumotlarini yuklashda xatolik yuz berdi.")
       setStudents([])
-    }
-
-    try {
-      const groupsResponse = await getJson('/groups/all')
-      const groupsData = groupsResponse.data || groupsResponse
-      if (Array.isArray(groupsData)) {
-        setAvailableGroups(groupsData)
-      }
-    } catch (err) {
-      console.error('Groups API Error:', err)
     }
 
     setLoading(false)

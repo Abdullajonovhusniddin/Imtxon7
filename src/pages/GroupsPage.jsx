@@ -45,6 +45,7 @@ function GroupsPage() {
   const [rooms, setRooms] = useState([])
   const [teachers, setTeachers] = useState([])
   const [students, setStudents] = useState([])
+  const [formDataLoaded, setFormDataLoaded] = useState(false)
   
   // Selection states for group creation
   const [selectedTeacherIds, setSelectedTeacherIds] = useState([])
@@ -109,6 +110,23 @@ function GroupsPage() {
     }, {})
   }
 
+  const loadGroupFormData = async (force = false) => {
+    if (formDataLoaded && !force) return
+
+    const [coursesRes, roomsRes, teachersRes, studentsRes] = await Promise.allSettled([
+      getJson(COURSES_API),
+      getJson('/rooms'),
+      getJson('/teachers'),
+      getJson('/students'),
+    ])
+
+    if (coursesRes.status === 'fulfilled') setCourses(getApiItems(coursesRes.value))
+    if (roomsRes.status === 'fulfilled') setRooms(getApiItems(roomsRes.value))
+    if (teachersRes.status === 'fulfilled') setTeachers(getApiItems(teachersRes.value))
+    if (studentsRes.status === 'fulfilled') setStudents(getApiItems(studentsRes.value))
+    setFormDataLoaded(true)
+  }
+
   const openModal = (group = null) => {
     setEditingGroup(group)
 
@@ -146,6 +164,7 @@ function GroupsPage() {
     }
 
     setIsModalOpen(true)
+    loadGroupFormData()
   }
 
   const closeModal = () => {
@@ -283,55 +302,23 @@ function GroupsPage() {
         return
       }
 
-      const [groupsRes, coursesRes, roomsRes, teachersRes, studentsRes, studentGroupsRes] = await Promise.allSettled([
+      const [groupsRes] = await Promise.allSettled([
         getJson(tab === 'arxiv' ? GROUPS_ARCHIVE_API : '/groups/all'),
-        getJson(COURSES_API),
-        getJson('/rooms'),
-        getJson('/teachers'),
-        getJson('/students'),
-        getJson('/student-group/all')
       ])
 
       if (requestId !== loadRequestRef.current) return
-
-      // Build a map: group_id to student count from /student-group/all
-      let studentCountMap = {}
-      if (studentGroupsRes.status === 'fulfilled') {
-        const sgData = getApiItems(studentGroupsRes.value)
-        if (Array.isArray(sgData)) {
-          sgData.forEach(item => {
-            const gid = item.group_id
-            if (gid !== undefined && gid !== null) {
-              studentCountMap[gid] = (studentCountMap[gid] || 0) + 1
-            }
-          })
-        }
-      }
 
       if (groupsRes.status === 'fulfilled') {
         const data = getApiItems(groupsRes.value)
         const enriched = data.map(group => ({
           ...group,
-          studentsCount: studentCountMap[group.id] ?? getGroupStudentsCount(group),
+          studentsCount: getGroupStudentsCount(group),
           teachersCount: getGroupTeachersCount(group),
           status: tab === 'arxiv' ? 'Arxiv' : (group.status || group.activity || 'FAOL')
         }))
         setGroups(enriched)
       } else {
         setGroups([])
-      }
-
-      if (coursesRes.status === 'fulfilled') {
-        setCourses(getApiItems(coursesRes.value))
-      }
-      if (roomsRes.status === 'fulfilled') {
-        setRooms(getApiItems(roomsRes.value))
-      }
-      if (teachersRes.status === 'fulfilled') {
-        setTeachers(getApiItems(teachersRes.value))
-      }
-      if (studentsRes.status === 'fulfilled') {
-        setStudents(getApiItems(studentsRes.value))
       }
     } catch (err) {
       console.error('Error fetching data:', err)

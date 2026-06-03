@@ -560,7 +560,7 @@ function TeachersPage() {
               <div className="s-form-group">
                 <label className="s-form-label">Telefon raqam</label>
                 <div style={{ display: 'flex' }}>
-                  <div style={{ padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRight: 'none', borderRadius: '10px 0 0 10px', background: '#f8fafc', color: '#64748b', fontWeight: '500' }}>
+                  <div className="s-input-prefix" style={{ padding: '0.75rem 1rem', border: '1.5px solid #e2e8f0', borderRight: 'none', borderRadius: '10px 0 0 10px', background: '#f8fafc', color: '#64748b', fontWeight: '500' }}>
                     +998
                   </div>
                   <input 
@@ -620,7 +620,7 @@ function TeachersPage() {
                   <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                   <div className="s-form-input" style={{ paddingLeft: '2.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', minHeight: '44px', alignItems: 'center' }}>
                     {formData.groups.map(g => (
-                      <span key={g.id} style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span key={g.id} className="s-inline-chip" style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {g.name || g.group_name} <X size={12} style={{ cursor: 'pointer' }} onClick={() => handleRemoveGroup(g.id)} />
                       </span>
                     ))}
@@ -638,7 +638,7 @@ function TeachersPage() {
                   </div>
                 </div>
                 {showGroupDropdown && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', marginTop: '4px', zIndex: 10, maxHeight: '150px', overflowY: 'auto', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                  <div className="s-dropdown-panel" style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', marginTop: '4px', zIndex: 10, maxHeight: '150px', overflowY: 'auto', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                     {availableGroups.filter(g => (g.name || g.group_name || '').toLowerCase().includes(groupSearch.toLowerCase())).map(group => (
                       <div 
                         key={group.id} 
@@ -655,7 +655,7 @@ function TeachersPage() {
 
               <div className="s-form-group">
                 <label className="s-form-label">Jinsi</label>
-                <div style={{ display: 'flex', gap: '1.5rem', background: '#fafafa', padding: '0.75rem 1rem', borderRadius: '10px', width: 'max-content' }}>
+                <div className="s-radio-panel" style={{ display: 'flex', gap: '1.5rem', background: '#fafafa', padding: '0.75rem 1rem', borderRadius: '10px', width: 'max-content' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                     <input
                       type="radio"

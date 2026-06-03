@@ -317,7 +317,7 @@ function DashboardPage({ activePage = 'dashboard' }) {
                 const itemGroupId = item.group_id || item.groupId || item.group?.id || item.Group?.id
                 return !itemGroupId || String(itemGroupId) === String(firstGroupId)
               })
-            } catch (err) {
+            } catch {
               const lessonsRes = await getJson(`${LESSONS_BY_GROUP_API}/${firstGroupId}`)
               lessonsArr = getApiItems(lessonsRes)
             }
