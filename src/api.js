@@ -132,7 +132,7 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor to handle 401/403 and formatting error messages
+// Response interceptor to handle auth and formatting error messages
 api.interceptors.response.use(
   (response) => {
     return response
@@ -140,7 +140,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response) {
       const status = error.response.status
-      if (status === 401 || status === 403) {
+      if (status === 401) {
         clearAuth()
       }
       

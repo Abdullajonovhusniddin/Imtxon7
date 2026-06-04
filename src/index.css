@@ -2848,6 +2848,24 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   margin-bottom: 1rem;
 }
 
+.erp-info-layout > .erp-panel {
+  padding: 0;
+}
+
+.erp-info-layout > .erp-panel > .erp-panel-title {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  background: #3b82f6;
+  color: #fff;
+}
+
+.erp-info-layout > .erp-panel > .erp-mentor-list,
+.erp-info-layout > .erp-panel > .erp-param-list,
+.erp-info-layout > .erp-panel > .erp-schedule-list,
+.erp-info-layout > .erp-panel > .erp-month-strip {
+  margin: 1.25rem;
+}
+
 .erp-mentor-list,
 .erp-param-list,
 .erp-schedule-list {
@@ -2996,6 +3014,13 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   cursor: pointer;
 }
 
+.erp-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .erp-homework-preview {
   min-width: 0;
 }
@@ -3054,6 +3079,36 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   padding: 0 0.8rem;
 }
 
+.erp-homework-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.erp-homework-summary div {
+  min-height: 68px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.erp-homework-summary span {
+  color: var(--sub);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.erp-homework-summary strong {
+  color: var(--text);
+  font-size: 1.25rem;
+}
+
 .erp-homework-list {
   display: grid;
   gap: 0.85rem;
@@ -3096,6 +3151,165 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   gap: 0.5rem;
 }
 
+.erp-homework-check-page {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.erp-check-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.erp-check-breadcrumb button {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.erp-check-breadcrumb span,
+.erp-check-breadcrumb strong {
+  color: var(--sub);
+}
+
+.erp-check-card {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.erp-check-card h2 {
+  margin: 0 0 1.25rem;
+  font-size: 1.45rem;
+}
+
+.erp-check-note,
+.erp-submission-comment {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.erp-check-note span,
+.erp-submission-comment span,
+.erp-student-work-meta span {
+  color: var(--sub);
+  font-weight: 800;
+}
+
+.erp-check-note p,
+.erp-submission-comment p {
+  margin: 0.6rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.erp-student-work-card {
+  background: #f1f5f9;
+}
+
+.erp-student-work-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.erp-student-work-meta div {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.erp-student-work-meta strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.erp-waiting-badge {
+  width: fit-content;
+  color: #ca8a04 !important;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+}
+
+.erp-submitted-files {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.erp-file-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.erp-file-thumb {
+  width: 132px;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #3b82f6;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.erp-submission-comment {
+  border-left: 4px solid #3b82f6;
+  background: #f8fafc;
+}
+
+.erp-grade-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+}
+
+.erp-grade-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 1rem;
+  align-items: center;
+}
+
+.erp-grade-row input[type="range"] {
+  accent-color: #22c55e;
+}
+
+.erp-check-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
 .erp-own-homework {
   display: grid;
   gap: 0.35rem;
@@ -3105,6 +3319,39 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   border-radius: 8px;
   background: var(--surface);
   color: var(--sub);
+}
+
+.group-picker-overlay {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+}
+
+.group-picker-modal {
+  width: min(500px, calc(100vw - 2rem)) !important;
+  height: auto !important;
+  max-height: 84dvh !important;
+  max-width: 500px !important;
+  border-radius: 8px !important;
+  padding: 1.5rem !important;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.34) !important;
+  animation: none !important;
+}
+
+.group-picker-list {
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 320px;
+}
+
+.group-picker-actions {
+  justify-content: flex-end;
+  padding-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
 }
 
 .erp-own-homework strong {
@@ -3250,7 +3497,7 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
 .erp-attendance-head,
 .erp-attendance-row {
   display: grid;
-  grid-template-columns: 64px 1fr 100px;
+  grid-template-columns: 64px 1fr minmax(190px, 240px);
   align-items: center;
   gap: 1rem;
   min-height: 76px;
@@ -3268,6 +3515,58 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   align-items: center;
   gap: 0.75rem;
   font-weight: 700;
+}
+
+.erp-attendance-note {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-weight: 800;
+}
+
+.erp-attendance-note.open {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.erp-attendance-note.closed {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
+.erp-attendance-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.erp-attendance-choice {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--sub);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.erp-attendance-choice.present {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #047857;
+}
+
+.erp-attendance-choice.absent {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.erp-attendance-choice:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .erp-toggle {
@@ -3382,6 +3681,23 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   box-shadow: 0 22px 70px rgba(15, 23, 42, 0.28);
   overflow: hidden;
   color: #0f172a;
+}
+
+.erp-video-preview-modal {
+  width: min(960px, 100%);
+}
+
+.erp-video-preview-body {
+  background: #020617;
+  padding: 1rem;
+}
+
+.erp-video-preview-body video {
+  width: 100%;
+  max-height: 70dvh;
+  display: block;
+  background: #000;
+  border-radius: 8px;
 }
 
 .erp-video-modal-head {
@@ -3546,6 +3862,10 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   .erp-homework-actions {
     grid-template-columns: 1fr;
   }
+
+  .erp-homework-summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -3654,6 +3974,15 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   .erp-video-file-row {
     grid-template-columns: 1fr;
     padding: 1rem;
+  }
+
+  .erp-attendance-head,
+  .erp-attendance-row {
+    grid-template-columns: 48px 1fr;
+  }
+
+  .erp-attendance-actions {
+    grid-column: 1 / -1;
   }
 
   .erp-video-modal-actions {
@@ -5210,4 +5539,196 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   .students-table {
     @apply min-w-[820px];
   }
+}
+
+/* Compact student list overrides */
+.students-page {
+  gap: 1rem;
+}
+
+.students-header {
+  gap: 0.85rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  line-height: 1.15;
+}
+
+.page-subtitle {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  max-width: 680px;
+}
+
+.students-card {
+  border-radius: 12px;
+  padding: 0.9rem;
+  gap: 0.9rem;
+}
+
+.add-student-btn,
+.control-btn,
+.pagination-arrow {
+  min-height: 38px;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.search-input {
+  padding-block: 0.52rem;
+  font-size: 0.84rem;
+}
+
+.table-wrapper {
+  margin: 0 -0.9rem;
+  padding: 0 0.9rem;
+}
+
+.students-table {
+  font-size: 0.8rem;
+}
+
+.students-table th,
+.students-table td {
+  padding: 0.62rem 0.5rem;
+}
+
+.student-avatar,
+.student-avatar-img {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 8px !important;
+}
+
+.student-info {
+  gap: 0.55rem;
+}
+
+.group-tag {
+  padding: 0.26rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.68rem;
+}
+
+.actions-row {
+  gap: 0.35rem;
+}
+
+.action-icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+@media (max-width: 760px) {
+  .page-title {
+    font-size: 1.35rem !important;
+  }
+
+  .page-subtitle {
+    font-size: 0.78rem;
+  }
+
+  .students-card {
+    padding: 0.75rem !important;
+  }
+
+  .table-wrapper {
+    margin: 0 -0.75rem !important;
+    overflow-x: auto !important;
+    padding: 0 0.75rem !important;
+  }
+
+  .students-table {
+    min-width: 760px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .students-table {
+    min-width: 680px !important;
+  }
+
+  .add-student-btn,
+  .control-btn,
+  .pagination-arrow {
+    min-height: 36px;
+    font-size: 0.78rem;
+  }
+}
+
+/* Dark login panel */
+.login-right {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+.login-card,
+.login-form,
+.form-group label,
+.lms-title {
+  color: #e5e7eb;
+}
+
+.uni-name {
+  color: #bfdbfe;
+}
+
+.form-input {
+  background: #111827;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.form-input::placeholder {
+  color: #94a3b8;
+}
+
+.form-input:focus {
+  background: #0b1120;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+.form-input:-webkit-autofill,
+.form-input:-webkit-autofill:hover,
+.form-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f8fafc;
+  box-shadow: 0 0 0 1000px #111827 inset;
+  caret-color: #f8fafc;
+}
+
+.eye-btn,
+.copyright {
+  color: #cbd5e1;
+}
+
+/* Teacher ERP shell */
+.erp-teacher-shell {
+  --primary: #10b981;
+  --primary-dark: #059669;
+}
+
+.erp-teacher-shell .db-logo-text {
+  color: #059669;
+  letter-spacing: 0;
+}
+
+.erp-teacher-shell .db-nav-item.active {
+  background: #10b981;
+  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.22);
+}
+
+.erp-teacher-shell .db-nav-item:hover {
+  background: rgba(16, 185, 129, 0.08);
+  color: #059669;
+}
+
+.erp-teacher-shell .db-welcome-title {
+  color: #065f46;
+}
+
+.erp-teacher-shell.dark .db-welcome-title {
+  color: #86efac;
 }

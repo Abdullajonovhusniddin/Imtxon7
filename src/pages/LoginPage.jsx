@@ -4,11 +4,13 @@ import loginImg from '../assets/image.png'
 import { postJson, saveAuth } from '../api'
 
 const LOGIN_API = 'https://najot-edu.softwareengineer.uz/api/v1/auth/login'
+const DEFAULT_PHONE = '998975661099'
+const DEFAULT_PASSWORD = 'Benazir99!'
 
 function LoginPage() {
   const navigate = useNavigate()
-  const [phone, setPhone] = useState('')
-  const [password, setPassword] = useState('')
+  const [phone, setPhone] = useState(DEFAULT_PHONE)
+  const [password, setPassword] = useState(DEFAULT_PASSWORD)
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -39,9 +41,21 @@ function LoginPage() {
         data?.data?.teacher ||
         data?.student ||
         data?.teacher
+      const role =
+        user?.role ||
+        user?.Role?.name ||
+        data?.role ||
+        data?.data?.role ||
+        data?.user_role ||
+        data?.data?.user_role ||
+        data?.type ||
+        data?.data?.type ||
+        (data?.data?.teacher || data?.teacher ? 'teacher' : '') ||
+        (data?.data?.student || data?.student ? 'student' : '')
+      const normalizedUser = role ? { ...(user || {}), role } : user
       
       if (token) {
-        saveAuth({ token, userPhone: phone, user })
+        saveAuth({ token, userPhone: phone, user: normalizedUser })
         navigate('/dashboard')
       } else {
         console.error('Token topilmadi! API response tarkibini tekshiring.')

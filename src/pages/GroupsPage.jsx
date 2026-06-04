@@ -17,11 +17,15 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { deleteJson, getJson, getUserRole, patchJson, postJson } from '../api'
+import { createTranslator } from '../i18n'
 
 const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
 const GROUPS_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups'
 const GROUPS_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups/archive'
 const STUDENT_MY_GROUPS_API = '/students/my/groups'
+const getViewportRowsLimit = () => {
+  return 5
+}
 const WEEK_DAY_MAP = {
   Dushanba: 'MONDAY',
   Seshanba: 'TUESDAY',
@@ -31,11 +35,14 @@ const WEEK_DAY_MAP = {
   Shanba: 'SATURDAY',
   Yakshanba: 'SUNDAY'
 }
-function GroupsPage() {
+function GroupsPage({ language = 'uz' }) {
+  const t = createTranslator(language)
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('guruhlar') // 'guruhlar' or 'arxiv'
+  const [page, setPage] = useState(1)
+  const [pageLimit, setPageLimit] = useState(getViewportRowsLimit)
   const loadRequestRef = useRef(0)
   const navigate = useNavigate()
   const isStudentUser = ['student', 'talaba'].includes(getUserRole())
@@ -333,10 +340,25 @@ function GroupsPage() {
     queueMicrotask(() => loadAllData())
   }, [])
 
+  useEffect(() => {
+    const handleResize = () => {
+      const nextLimit = getViewportRowsLimit()
+      setPageLimit(prev => {
+        if (prev === nextLimit) return prev
+        setPage(1)
+        return nextLimit
+      })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const handleTabChange = (tab) => {
     if (isStudentUser) return
     setActiveTab(tab)
     setSearch('')
+    setPage(1)
     loadAllData(tab)
   }
 
@@ -560,6 +582,13 @@ function GroupsPage() {
     const matchesSearch = (g.name || g.group_name || '').toLowerCase().includes(search.toLowerCase())
     return matchesSearch
   })
+  const totalPages = Math.max(1, Math.ceil(filteredGroups.length / pageLimit))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedGroups = filteredGroups.slice((currentPage - 1) * pageLimit, currentPage * pageLimit)
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1 || nextPage > totalPages) return
+    setPage(nextPage)
+  }
 
   // Calculation for top Stats
   const totalGroupsCount = groups.length
@@ -575,7 +604,7 @@ function GroupsPage() {
       {/* HEADER SECTION */}
       <div className="students-header max-lg:!flex max-lg:!flex-row max-lg:!items-start max-lg:!justify-between max-lg:!gap-4 max-md:!grid max-md:!grid-cols-1 max-md:!gap-3">
         <div className="header-left">
-          <h1 className="page-title max-md:!text-3xl max-md:!leading-tight">{isStudentUser ? 'Mening guruhlarim' : 'Guruhlar'}</h1>
+          <h1 className="page-title max-md:!text-3xl max-md:!leading-tight">{isStudentUser ? t('pages.myGroups') : t('pages.groups')}</h1>
           
           {/* TABS SELECTOR */}
           {!isStudentUser && (
@@ -585,14 +614,14 @@ function GroupsPage() {
               onClick={() => handleTabChange('guruhlar')}
             >
               <Users size={16} />
-              Guruhlar
+              {t('pages.groups')}
             </button>
             <button 
               className={`group-tab-btn ${activeTab === 'arxiv' ? 'active' : ''}`}
               onClick={() => handleTabChange('arxiv')}
             >
               <Clock size={16} />
-              Arxiv
+              {t('actions.archive')}
             </button>
           </div>
           )}
@@ -601,7 +630,7 @@ function GroupsPage() {
         {!isStudentUser && (
         <button className="add-student-btn max-lg:!w-auto max-lg:!min-w-fit max-lg:!rounded-xl max-md:!w-full max-md:!justify-center" onClick={() => openModal()}>
           <Plus size={20} />
-          Guruh qo'shish
+          {t('actions.addGroup')}
         </button>
         )}
       </div>
@@ -662,20 +691,23 @@ function GroupsPage() {
             <Search size={18} className="search-icon" />
             <input 
               type="text" 
-              placeholder="Qidirish..." 
+              placeholder={t('actions.search')} 
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               className="search-input"
             />
           </div>
           <div className="action-buttons max-lg:!flex max-lg:!flex-row max-md:!grid max-md:!grid-cols-2 max-sm:!grid-cols-1 max-md:!gap-2">
             <button type="submit" className="control-btn max-md:!justify-center" title="Yangilash">
               <RefreshCw size={18} />
-              Yangilash
+              {t('actions.refresh')}
             </button>
             <button type="button" className="control-btn max-md:!justify-center">
               <Filter size={18} />
-              Filters
+              {t('actions.filters')}
             </button>
           </div>
         </form>
@@ -685,14 +717,14 @@ function GroupsPage() {
           <table className="students-table max-md:!table max-md:!min-w-[920px] max-md:!w-full max-sm:!min-w-[820px]">
             <thead>
               <tr>
-                <th>Status</th>
-                <th>Guruh nomi</th>
-                <th>Kurs</th>
-                <th>Max o'quvchi</th>
-                <th>Dars vaqti</th>
-                <th>Xona</th>
-                <th>O'qituvchi</th>
-                <th>Talabalar</th>
+                <th>{t('group.status')}</th>
+                <th>{t('group.groupName')}</th>
+                <th>{t('group.course')}</th>
+                <th>{t('group.maxStudent')}</th>
+                <th>{t('group.lessonTime')}</th>
+                <th>{t('group.room')}</th>
+                <th>{t('group.teacher')}</th>
+                <th>{t('group.students')}</th>
                 <th className="actions-col" style={{ textAlign: 'right' }}>
                   <RefreshCw size={14} style={{ cursor: 'pointer' }} onClick={() => loadAllData()} />
                 </th>
@@ -721,10 +753,10 @@ function GroupsPage() {
               ) : filteredGroups.length === 0 ? (
                 <tr>
                   <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--sub)' }}>
-                    Guruhlar topilmadi.
+                    {t('empty.groups')}
                   </td>
                 </tr>
-              ) : filteredGroups.map(group => {
+              ) : paginatedGroups.map(group => {
                 const isFaol = group.status === 'FAOL' || group.status === 'Aktiv' || !group.status
                 return (
                   <tr key={group.id}>
@@ -829,15 +861,15 @@ function GroupsPage() {
 
         {/* PAGINATION */}
         <div className="pagination max-lg:!static max-lg:!m-0 max-lg:!rounded-none max-lg:!bg-transparent max-lg:!p-0 max-lg:!shadow-none max-sm:!gap-2">
-          <button className="pagination-arrow">
+          <button className="pagination-arrow" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1 || loading}>
             <ChevronLeft size={18} />
-            Previous
+            {t('actions.previous')}
           </button>
           <div className="page-numbers">
-            <button className="page-num active">1</button>
+            <button className="page-num active">{currentPage} / {totalPages}</button>
           </div>
-          <button className="pagination-arrow">
-            Next
+          <button className="pagination-arrow" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages || loading}>
+            {t('actions.next')}
             <ChevronRight size={18} />
           </button>
         </div>
@@ -1031,8 +1063,8 @@ function GroupsPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                  <button type="button" className="s-btn-cancel" onClick={closeModal}>Bekor qilish</button>
-                  <button type="submit" className="s-btn-submit active">Saqlash</button>
+                  <button type="button" className="s-btn-cancel" onClick={closeModal}>{t('actions.cancel')}</button>
+                  <button type="submit" className="s-btn-submit active">{t('actions.save')}</button>
                 </div>
               </form>
             </div>
@@ -1085,8 +1117,8 @@ function GroupsPage() {
               </div>
 
               <div className="s-modal-actions" style={{ justifyContent: 'flex-end', paddingTop: '1rem' }}>
-                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={closeStudentModal}>Bekor qilish</button>
-                <button type="submit" className="s-btn-submit active" style={{ flex: 'none', padding: '0.75rem 2rem' }}>Saqlash</button>
+                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={closeStudentModal}>{t('actions.cancel')}</button>
+                <button type="submit" className="s-btn-submit active" style={{ flex: 'none', padding: '0.75rem 2rem' }}>{t('actions.save')}</button>
               </div>
             </form>
           </div>
@@ -1094,12 +1126,12 @@ function GroupsPage() {
       )}
       {/* TEACHER SELECT MODAL FOR GROUP CREATION */}
       {isTeacherSelectOpen && (
-        <div className="student-modal-overlay max-md:!items-stretch max-md:!justify-end max-md:!p-0" onClick={() => setIsTeacherSelectOpen(false)}>
-          <div className="student-modal-content max-md:!h-dvh max-md:!max-h-dvh max-md:!w-full max-md:!max-w-[460px] max-md:!rounded-none max-md:!p-5" onClick={e => e.stopPropagation()}>
+        <div className="student-modal-overlay group-picker-overlay" onClick={() => setIsTeacherSelectOpen(false)}>
+          <div className="student-modal-content group-picker-modal" onClick={e => e.stopPropagation()}>
             <div className="s-modal-header">
               <div>
                 <h2 className="s-modal-title">O'qituvchi tanlash</h2>
-                <p className="s-modal-subtitle">Bitta yoki bir nechta o'qituvchini tanlang</p>
+                <p className="s-modal-subtitle">Bitta yoki bir nechta o'qituvchini tanlang. Tanlangan: {tempTeacherIds.length}</p>
               </div>
               <button className="s-modal-close" onClick={() => setIsTeacherSelectOpen(false)}>
                 <X size={24} />
@@ -1117,7 +1149,7 @@ function GroupsPage() {
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', border: '1.5px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', maxHeight: '300px', overflowY: 'auto' }}>
+              <div className="group-picker-list">
                 {teachers.filter(t => (t.full_name || t.name || '').toLowerCase().includes(teacherSearchText.toLowerCase())).map((teacher, index, arr) => {
                   const isChecked = tempTeacherIds.includes(teacher.id)
                   return (
@@ -1145,8 +1177,8 @@ function GroupsPage() {
                 })}
               </div>
 
-              <div className="s-modal-actions" style={{ justifyContent: 'flex-end', paddingTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={() => setIsTeacherSelectOpen(false)}>Bekor qilish</button>
+              <div className="s-modal-actions group-picker-actions">
+                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={() => setIsTeacherSelectOpen(false)}>{t('actions.cancel')}</button>
                 <button 
                   type="button" 
                   className="s-btn-submit active" 
@@ -1156,7 +1188,7 @@ function GroupsPage() {
                     setIsTeacherSelectOpen(false)
                   }}
                 >
-                  Saqlash
+                  {t('actions.save')}
                 </button>
               </div>
             </div>
@@ -1166,12 +1198,12 @@ function GroupsPage() {
 
       {/* STUDENT SELECT MODAL FOR GROUP CREATION */}
       {isStudentSelectOpen && (
-        <div className="student-modal-overlay max-md:!items-stretch max-md:!justify-end max-md:!p-0" onClick={() => setIsStudentSelectOpen(false)}>
-          <div className="student-modal-content max-md:!h-dvh max-md:!max-h-dvh max-md:!w-full max-md:!max-w-[460px] max-md:!rounded-none max-md:!p-5" onClick={e => e.stopPropagation()}>
+        <div className="student-modal-overlay group-picker-overlay" onClick={() => setIsStudentSelectOpen(false)}>
+          <div className="student-modal-content group-picker-modal" onClick={e => e.stopPropagation()}>
             <div className="s-modal-header">
               <div>
                 <h2 className="s-modal-title">Talaba qo'shish</h2>
-                <p className="s-modal-subtitle">Bitta yoki bir nechta talabani tanlang</p>
+                <p className="s-modal-subtitle">Bitta yoki bir nechta talabani tanlang. Tanlangan: {tempStudentIds.length}</p>
               </div>
               <button className="s-modal-close" onClick={() => setIsStudentSelectOpen(false)}>
                 <X size={24} />
@@ -1189,7 +1221,7 @@ function GroupsPage() {
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', border: '1.5px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', maxHeight: '300px', overflowY: 'auto' }}>
+              <div className="group-picker-list">
                 {students.filter(s => (s.full_name || s.name || '').toLowerCase().includes(studentSearchText.toLowerCase())).map((student, index, arr) => {
                   const isChecked = tempStudentIds.includes(student.id)
                   return (
@@ -1217,8 +1249,8 @@ function GroupsPage() {
                 })}
               </div>
 
-              <div className="s-modal-actions" style={{ justifyContent: 'flex-end', paddingTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={() => setIsStudentSelectOpen(false)}>Bekor qilish</button>
+              <div className="s-modal-actions group-picker-actions">
+                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={() => setIsStudentSelectOpen(false)}>{t('actions.cancel')}</button>
                 <button 
                   type="button" 
                   className="s-btn-submit active" 
@@ -1228,7 +1260,7 @@ function GroupsPage() {
                     setIsStudentSelectOpen(false)
                   }}
                 >
-                  Saqlash
+                  {t('actions.save')}
                 </button>
               </div>
             </div>

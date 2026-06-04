@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { deleteJson, getJson, getUserRole, postJson } from '../api'
+import { API_BASE, deleteJson, getJson, getUserRole, postJson } from '../api'
 import {
   ArrowLeft,
   BarChart3,
   CheckCircle2,
+  CloudUpload,
   Download,
   Eye,
+  Info,
   MoreVertical,
   Plus,
   PlayCircle,
@@ -28,6 +30,14 @@ const HOMEWORK_API = '/homework'
 const FILES_API = '/files'
 // Backend API kerak: guruh bo'yicha o'quv reja mavzulari ro'yxati.
 // Masalan: GET /api/v1/lesson-plans/group/{groupId}
+const getTodayDate = () => {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const WEEK_DAY_LABELS = {
   MONDAY: 'Du',
   TUESDAY: 'Se',
@@ -72,6 +82,7 @@ export default function GroupDetail({ groupId }) {
   const [selectedPlanId, setSelectedPlanId] = useState('')
   const [lessonPlans] = useState([])
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
+  const [previewVideo, setPreviewVideo] = useState(null)
   const [videoFile, setVideoFile] = useState(null)
   const [videoLessonId, setVideoLessonId] = useState('')
   const [videoName, setVideoName] = useState('')
@@ -83,7 +94,7 @@ export default function GroupDetail({ groupId }) {
   const [homeworkResults, setHomeworkResults] = useState([])
   const [selectedHomeworkId, setSelectedHomeworkId] = useState('')
   const [selectedResult, setSelectedResult] = useState(null)
-  const [homeworkStatus, setHomeworkStatus] = useState('REJECTED')
+  const [homeworkStatus, setHomeworkStatus] = useState('PENDING')
   const [loadingHomework, setLoadingHomework] = useState(false)
   const [savingHomework, setSavingHomework] = useState(false)
   const [checkingHomework, setCheckingHomework] = useState(false)
@@ -100,7 +111,7 @@ export default function GroupDetail({ groupId }) {
     comment: ''
   })
   const [lessonForm, setLessonForm] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    date: getTodayDate(),
     topic: '',
     description: '',
     attendance: {}
@@ -190,8 +201,42 @@ export default function GroupDetail({ groupId }) {
         comment: item.comment || item.feedback || item.teacher_comment || '',
         submittedAt: item.submitted_at || item.submittedAt || item.created_at || item.createdAt || '',
         fileUrl: item.file_url || item.fileUrl || item.url || item.attachment || item.file
+          || (Array.isArray(item.files) ? item.files[0]?.url || item.files[0]?.file_url : ''),
+        files: Array.isArray(item.files)
+          ? item.files.map(file => buildFileUrl(file.url || file.file_url || file.path || file.location)).filter(Boolean)
+          : Array.isArray(item.Files)
+            ? item.Files.map(file => buildFileUrl(file.url || file.file_url || file.path || file.location)).filter(Boolean)
+            : [item.file_url || item.fileUrl || item.url || item.attachment || item.file].filter(Boolean).map(buildFileUrl),
+        homeworkComment: item.homework_comment || item.homeworkComment || item.answer || item.answer_text || item.text || ''
       }
     })
+  }
+
+  const normalizeResultStatus = (status) => String(status || '').toUpperCase()
+
+  const buildFileUrl = (url) => {
+    if (!url || typeof url !== 'string') return ''
+    if (url.startsWith('http://') || url.startsWith('https://')) return url
+
+    try {
+      const origin = new URL(API_BASE).origin
+      const normalized = url.startsWith('/') ? url : `/${url}`
+      return `${origin}${normalized}`
+    } catch {
+      return url
+    }
+  }
+
+  const getHomeworkStatusLabel = (status) => {
+    const labels = {
+      ACCEPTED: 'Qabul qilingan',
+      REJECTED: 'Rad etilgan',
+      PENDING: 'Kutmoqda',
+      SUBMITTED: 'Topshirgan',
+      NOT_SUBMITTED: 'Topshirmagan'
+    }
+
+    return labels[normalizeResultStatus(status)] || status || '-'
   }
 
   const normalizeFiles = (response) => {
@@ -200,7 +245,7 @@ export default function GroupDetail({ groupId }) {
       lessonId: item.lesson_id || item.lessonId || item.lesson?.id || item.Lesson?.id,
       name: item.name || item.file_name || item.fileName || item.original_name || item.originalName || item.title || 'Fayl',
       lessonName: item.lesson?.topic || item.Lesson?.topic || item.lesson_name || item.lessonName || item.topic || '-',
-      url: item.url || item.file_url || item.fileUrl || item.path || item.location,
+      url: buildFileUrl(item.url || item.file_url || item.fileUrl || item.path || item.location),
       type: item.type || item.mime_type || item.mimeType || item.mimetype || '-',
       size: item.size || item.file_size || item.fileSize || '',
       createdAt: item.created_at || item.createdAt || item.uploaded_at || item.uploadedAt || item.date || ''
@@ -320,19 +365,35 @@ export default function GroupDetail({ groupId }) {
   }
 
   const buildLessonDays = () => {
+    const today = getTodayDate()
+    const fallback = Array.from({ length: 13 }, (_, index) => {
+      const date = new Date(`${today}T00:00:00`)
+      date.setDate(date.getDate() + index)
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    })
     const base = allLessons.length > 0
-      ? allLessons.map(lesson => lesson.date).filter(Boolean)
-      : ['2026-05-02', '2026-05-05', '2026-05-07', '2026-05-09', '2026-05-12', '2026-05-14', '2026-05-16', '2026-05-19', '2026-05-21', '2026-05-23', '2026-05-26', '2026-05-28', '2026-05-30']
+      ? Array.from(new Set([today, ...allLessons.map(lesson => lesson.date?.slice(0, 10)).filter(Boolean)]))
+      : fallback
 
     return base.slice(0, 13).map(value => {
-      const date = new Date(value)
+      const date = new Date(`${String(value).slice(0, 10)}T00:00:00`)
       return {
-        value,
+        value: String(value).slice(0, 10),
         month: !isNaN(date) ? date.toLocaleDateString('en-US', { month: 'short' }) : 'May',
         day: !isNaN(date) ? date.getDate() : value,
         completed: allLessons.some(lesson => lesson.date?.slice(0, 10) === String(value).slice(0, 10))
       }
     })
+  }
+
+  const handleLessonDaySelect = (day, index, openJournal = false) => {
+    const selectedDate = String(day.value).slice(0, 10)
+    setSelectedMonth(index)
+    setLessonForm(prev => ({ ...prev, date: selectedDate }))
+    if (openJournal) {
+      setMainTab('lessons')
+      setLessonTab('journal')
+    }
   }
 
   const fetchGroupLessons = async () => {
@@ -390,7 +451,8 @@ export default function GroupDetail({ groupId }) {
       return
     }
 
-    const query = status ? `?status=${encodeURIComponent(status)}` : ''
+    const serverStatus = ['ACCEPTED', 'REJECTED', 'PENDING'].includes(status) ? status : ''
+    const query = serverStatus ? `?status=${encodeURIComponent(serverStatus)}` : ''
     try {
       const response = await getJson(`/group/${groupId}/homework/${homeworkId}/results${query}`)
       setHomeworkResults(normalizeHomeworkResults(response))
@@ -405,7 +467,15 @@ export default function GroupDetail({ groupId }) {
     try {
       const response = await getJson(`/group/${groupId}/homework/${homeworkId}/result/${studentId}`)
       const normalized = normalizeHomeworkResults(response)
-      setSelectedResult(normalized[0] || response?.data || response)
+      const result = normalized[0] || response?.data || response
+      setSelectedResult(result)
+      setCheckForm(prev => ({
+        ...prev,
+        studentId: result?.studentId || studentId || '',
+        grade: result?.grade && result.grade !== '-' ? String(result.grade) : '',
+        status: ['ACCEPTED', 'REJECTED', 'PENDING'].includes(normalizeResultStatus(result?.status)) ? normalizeResultStatus(result.status) : prev.status,
+        comment: result?.comment || ''
+      }))
     } catch (err) {
       console.error('Student homework result load error', err)
       setSelectedResult(null)
@@ -463,8 +533,7 @@ export default function GroupDetail({ groupId }) {
   }
 
   const toggleAttendance = (studentId, isPresent) => {
-    const canEditAttendance = lessonSource === 'plan' ? Boolean(selectedPlanId) : Boolean(lessonForm.topic.trim())
-    if (!canEditAttendance) return
+    if (!canFillAttendance()) return
     setLessonForm(prev => ({
       ...prev,
       attendance: {
@@ -474,16 +543,58 @@ export default function GroupDetail({ groupId }) {
     }))
   }
 
+  const getLessonStartTime = () => {
+    return group?.start_time || group?.startTime || group?.time || schedules[0]?.startTime || '09:00'
+  }
+
+  const getLessonStartDate = () => {
+    const [hour = '09', minute = '00'] = String(getLessonStartTime()).split(':')
+    return new Date(`${lessonForm.date}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`)
+  }
+
+  const isAttendanceTaken = () => {
+    return attendanceRecords.some(record => String(record.createdAt || '').slice(0, 10) === lessonForm.date)
+  }
+
+  const getAttendanceWindowStatus = () => {
+    const start = getLessonStartDate()
+    if (!lessonForm.date || isNaN(start)) return { open: false, message: 'Dars sanasi yoki vaqti topilmadi.' }
+    if (isAttendanceTaken()) return { open: false, message: 'Bu dars uchun davomat allaqachon qilingan.' }
+
+    const now = new Date()
+    const end = new Date(start.getTime() + 45 * 60 * 1000)
+
+    if (now < start) return { open: false, message: `Davomat ${getLessonStartTime()} dan keyin ochiladi.` }
+    if (now > end) return { open: false, message: 'Davomat vaqti tugagan. Dars boshlanganidan keyin 45 minut ichida qilish mumkin.' }
+    return { open: true, message: 'Davomat ochiq.' }
+  }
+
+  const canFillAttendance = () => {
+    const hasTopic = lessonSource === 'plan' ? Boolean(selectedPlanId) : Boolean(lessonForm.topic.trim())
+    return hasTopic && getAttendanceWindowStatus().open
+  }
+
+  const isVideoFile = (row = {}) => {
+    const value = `${row.type || ''} ${row.name || ''} ${row.url || ''}`.toLowerCase()
+    return value.includes('video') || /\.(mp4|webm|ogg|mov|m4v)(\?|$)/.test(value)
+  }
+
   const handleLessonSubmit = async (e) => {
     e.preventDefault()
     const selectedPlan = lessonPlans.find(plan => String(plan.id) === String(selectedPlanId))
     const topic = lessonSource === 'plan' ? selectedPlan?.title || selectedPlan?.topic || '' : lessonForm.topic.trim()
     if (savingLesson || !topic) return
+    if (!canFillAttendance()) {
+      alert(getAttendanceWindowStatus().message)
+      return
+    }
 
     setSavingLesson(true)
     try {
       await postJson(LESSONS_API, {
         group_id: Number(groupId) || groupId,
+        date: lessonForm.date,
+        lesson_date: lessonForm.date,
         topic,
         description: lessonForm.description
       })
@@ -494,6 +605,7 @@ export default function GroupDetail({ groupId }) {
           .map(student => postJson(ATTENDANCE_API, {
             group_id: Number(groupId) || groupId,
             student_id: Number(student.id) || student.id,
+            date: lessonForm.date,
             isPresent: lessonForm.attendance[student.id] === true
           }))
         )
@@ -502,7 +614,7 @@ export default function GroupDetail({ groupId }) {
       await loadLessons(true)
       if (attendanceLoaded) await loadAttendance(true)
       setLessonForm({
-        date: new Date().toISOString().slice(0, 10),
+        date: lessonForm.date || getTodayDate(),
         topic: '',
         description: '',
         attendance: {}
@@ -592,13 +704,23 @@ export default function GroupDetail({ groupId }) {
         comment: checkForm.comment
       })
       setCheckForm({ studentId: '', grade: '', status: 'ACCEPTED', comment: '' })
-      await loadHomeworkResults()
+      setSelectedResult(null)
+      await loadHomeworkResults(selectedHomeworkId, homeworkStatus)
     } catch (err) {
       console.error('Homework check error', err)
       alert(err.message || 'Uy vazifani tekshirishda xatolik yuz berdi.')
     } finally {
       setCheckingHomework(false)
     }
+  }
+
+  const handleGradeChange = (value) => {
+    const normalized = Math.max(0, Math.min(100, Number(value) || 0))
+    setCheckForm(prev => ({
+      ...prev,
+      grade: String(normalized),
+      status: normalized >= 60 ? 'ACCEPTED' : 'REJECTED'
+    }))
   }
 
   const deleteGroup = async () => {
@@ -699,15 +821,22 @@ export default function GroupDetail({ groupId }) {
       await loadLessons()
       await loadFiles()
     }
+
+    if (tab === 'journal') {
+      await loadAttendance()
+    }
   }
 
   if (loading) return <div className="students-card">Yuklanmoqda...</div>
   if (!group) return <div className="students-card">Guruh topilmadi</div>
 
   const lessonDays = buildLessonDays()
-  const canEditAttendance = lessonSource === 'plan' ? Boolean(selectedPlanId) : Boolean(lessonForm.topic.trim())
+  const canEditAttendance = canFillAttendance()
+  const attendanceWindow = getAttendanceWindowStatus()
   const userRole = getUserRole()
-  const canManageHomework = ['superadmin', 'admin', 'teacher'].includes(userRole)
+  const canManageHomework = userRole
+    ? ['superadmin', 'admin', 'teacher', 'oqituvchi'].includes(userRole)
+    : true
   const attendancePresentCount = attendanceRecords.filter(record => record.isPresent).length
   const attendanceAbsentCount = attendanceRecords.length - attendancePresentCount
   const examRows = allLessons.length > 0 ? allLessons : [
@@ -716,6 +845,29 @@ export default function GroupDetail({ groupId }) {
     { id: 5, topic: 'Examination', date: '2026-03-26', attendanceCount: 14, status: 'Tugagan' }
   ]
   const videoRows = groupFiles
+  const submittedStudentIds = new Set(homeworkResults.map(row => String(row.studentId)).filter(Boolean))
+  const notSubmittedRows = students
+    .filter(student => student.id && !submittedStudentIds.has(String(student.id)))
+    .map(student => ({
+      id: `not-submitted-${student.id}`,
+      studentId: student.id,
+      studentName: student.name,
+      status: 'NOT_SUBMITTED',
+      grade: '-',
+      submittedAt: ''
+    }))
+  const visibleHomeworkRows = homeworkStatus === 'NOT_SUBMITTED'
+    ? notSubmittedRows
+    : homeworkStatus === 'SUBMITTED'
+      ? homeworkResults
+      : homeworkStatus
+        ? homeworkResults.filter(row => normalizeResultStatus(row.status) === homeworkStatus)
+        : [...homeworkResults, ...notSubmittedRows]
+  const submittedCount = homeworkResults.length
+  const pendingCount = homeworkResults.filter(row => normalizeResultStatus(row.status) === 'PENDING').length
+  const selectedHomework = homeworks.find(item => String(item.id) === String(selectedHomeworkId))
+  const selectedResultFiles = selectedResult?.files || []
+  const selectedGrade = Number(checkForm.grade || 0)
 
   return (
     <div className="erp-group-page">
@@ -793,7 +945,7 @@ export default function GroupDetail({ groupId }) {
             </div>
             <div className="erp-month-strip compact">
               {lessonDays.map((day, index) => (
-                <button key={`${day.value}-${index}`} className={index === selectedMonth ? 'active' : day.completed ? 'muted' : ''} onClick={() => setSelectedMonth(index)}>
+                <button key={`${day.value}-${index}`} className={index === selectedMonth ? 'active' : day.completed ? 'muted' : ''} onClick={() => handleLessonDaySelect(day, index, true)}>
                   <span>{day.month}</span>
                   <strong>{day.day}</strong>
                 </button>
@@ -844,15 +996,23 @@ export default function GroupDetail({ groupId }) {
                     setHomeworkStatus(nextStatus)
                     loadHomeworkResults(selectedHomeworkId, nextStatus)
                   }}>
-                    <option value="">Barcha statuslar</option>
-                    <option value="REJECTED">REJECTED</option>
-                    <option value="ACCEPTED">ACCEPTED</option>
-                    <option value="PENDING">PENDING</option>
+                    <option value="">Barchasi</option>
+                    <option value="SUBMITTED">Topshirganlar</option>
+                    <option value="NOT_SUBMITTED">Topshirmaganlar</option>
+                    <option value="PENDING">Kutayotganlar</option>
+                    <option value="ACCEPTED">Qabul qilingan</option>
+                    <option value="REJECTED">Rad etilgan</option>
                   </select>
                   <button className="erp-outline-btn" onClick={() => loadHomeworkResults()}>
                     <Eye size={18} />
                     Natijalar
                   </button>
+                </div>
+
+                <div className="erp-homework-summary">
+                  <div><span>Topshirgan</span><strong>{submittedCount}</strong></div>
+                  <div><span>Topshirmagan</span><strong>{notSubmittedRows.length}</strong></div>
+                  <div><span>Kutmoqda</span><strong>{pendingCount}</strong></div>
                 </div>
 
                 {loadingHomework ? (
@@ -938,20 +1098,25 @@ export default function GroupDetail({ groupId }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {homeworkResults.length > 0 ? homeworkResults.map((row, index) => (
+                    {visibleHomeworkRows.length > 0 ? visibleHomeworkRows.map((row, index) => (
                       <tr key={row.id || index}>
                         <td>{index + 1}</td>
                         <td>{row.studentName}</td>
-                        <td><span className={`erp-status ${row.status === 'REJECTED' ? 'neutral' : 'soft'}`}>{row.status}</span></td>
+                        <td><span className={`erp-status ${normalizeResultStatus(row.status) === 'NOT_SUBMITTED' || normalizeResultStatus(row.status) === 'REJECTED' ? 'neutral' : 'soft'}`}>{getHomeworkStatusLabel(row.status)}</span></td>
                         <td>{row.grade}</td>
                         <td>{formatDate(row.submittedAt)}</td>
                         <td>
                           <button className="erp-link-cell" onClick={() => {
                             setCheckForm(prev => ({ ...prev, studentId: row.studentId || '' }))
-                            loadStudentHomeworkResult(selectedHomeworkId, row.studentId)
+                            if (normalizeResultStatus(row.status) === 'NOT_SUBMITTED') {
+                              setSelectedResult(row)
+                              setCheckForm(prev => ({ ...prev, studentId: row.studentId || '', grade: '', status: 'PENDING', comment: '' }))
+                            } else {
+                              loadStudentHomeworkResult(selectedHomeworkId, row.studentId)
+                            }
                           }}>
                             <Eye size={18} />
-                            Ko'rish
+                            {canManageHomework ? 'Baholash' : "Ko'rish"}
                           </button>
                         </td>
                       </tr>
@@ -964,43 +1129,78 @@ export default function GroupDetail({ groupId }) {
                 </table>
               </div>
 
-              {canManageHomework && (
-                <form className="erp-panel erp-homework-form" onSubmit={handleHomeworkCheck}>
-                  <div className="erp-panel-title"><CheckCircle2 size={18} /> Tekshirish</div>
-                  {selectedResult && (
-                    <div className="erp-own-homework">
-                      <strong>{selectedResult.studentName || "O'quvchi"}</strong>
-                      <span>{selectedResult.comment || "Izoh yo'q"}</span>
+              {canManageHomework && selectedResult && (
+                <form className="erp-homework-check-page" onSubmit={handleHomeworkCheck}>
+                  <div className="erp-check-breadcrumb">
+                    <button type="button" onClick={() => setSelectedResult(null)}>Kutayotganlar</button>
+                    <span>/</span>
+                    <strong>Uyga vazifa</strong>
+                  </div>
+
+                  <section className="erp-check-card">
+                    <h2>Uy vazifasi</h2>
+                    <div className="erp-check-note">
+                      <span>Izoh:</span>
+                      <p>{selectedHomework?.description || "Izoh yo'q"}</p>
                     </div>
-                  )}
-                  <label className="erp-field">
-                    <span><b>*</b> O'quvchi</span>
-                    <select value={checkForm.studentId} onChange={e => setCheckForm(prev => ({ ...prev, studentId: e.target.value }))} required>
-                      <option value="">O'quvchini tanlang</option>
-                      {students.map(student => (
-                        <option key={student.id} value={student.id}>{student.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="erp-field">
-                    <span>Status</span>
-                    <select value={checkForm.status} onChange={e => setCheckForm(prev => ({ ...prev, status: e.target.value }))}>
-                      <option value="ACCEPTED">ACCEPTED</option>
-                      <option value="REJECTED">REJECTED</option>
-                      <option value="PENDING">PENDING</option>
-                    </select>
-                  </label>
-                  <label className="erp-field">
-                    <span>Baho</span>
-                    <input type="number" value={checkForm.grade} onChange={e => setCheckForm(prev => ({ ...prev, grade: e.target.value }))} placeholder="100" />
-                  </label>
-                  <label className="erp-field">
-                    <span>Izoh</span>
-                    <textarea value={checkForm.comment} onChange={e => setCheckForm(prev => ({ ...prev, comment: e.target.value }))} placeholder="Tekshiruv izohi..." />
-                  </label>
-                  <button className="erp-primary-btn purple" type="submit" disabled={checkingHomework || !selectedHomeworkId || !checkForm.studentId}>
-                    {checkingHomework ? 'Tekshirilmoqda...' : 'Tekshirish'}
-                  </button>
+                  </section>
+
+                  <section className="erp-check-card erp-student-work-card">
+                    <h2>{selectedResult.studentName || "O'quvchi"}</h2>
+                    <div className="erp-student-work-meta">
+                      <div><span>Vaqti:</span><strong>{formatDate(selectedResult.submittedAt)}</strong></div>
+                      <div><span>Fayllar soni:</span><strong>{selectedResultFiles.length || (selectedResult.fileUrl ? 1 : 0)}</strong></div>
+                      <div><span>Status:</span><strong className="erp-waiting-badge">{getHomeworkStatusLabel(selectedResult.status)}</strong></div>
+                    </div>
+                    <div className="erp-submitted-files">
+                      <strong>Fayl: {selectedResultFiles.length || (selectedResult.fileUrl ? 1 : 0)}</strong>
+                      <div className="erp-file-preview-row">
+                        {(selectedResultFiles.length > 0 ? selectedResultFiles : [selectedResult.fileUrl].filter(Boolean)).map((file, index) => (
+                          <a key={`${file}-${index}`} href={file} target="_blank" rel="noreferrer" className="erp-file-thumb">
+                            <Download size={18} />
+                            Fayl {index + 1}
+                          </a>
+                        ))}
+                      </div>
+                      <div className="erp-submission-comment">
+                        <span>Uyga vazifa izohi:</span>
+                        <p>{selectedResult.homeworkComment || selectedResult.comment || "Izoh yo'q"}</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="erp-check-card erp-grade-card">
+                    <div className="erp-grade-info">
+                      <Info size={24} />
+                      <span>60-100 oralig'ida ball qo'yilgan vazifa 'Qabul qilingan', 0-59 oralig'ida ball qo'yilgan vazifa 'Qaytarilgan' hisoblanadi.</span>
+                    </div>
+                    <label className="erp-field">
+                      <span>Ball</span>
+                      <div className="erp-grade-row">
+                        <input type="range" min="0" max="100" value={selectedGrade} onChange={e => handleGradeChange(e.target.value)} />
+                        <input type="number" min="0" max="100" value={checkForm.grade} onChange={e => handleGradeChange(e.target.value)} placeholder="60" />
+                      </div>
+                      <small>O'tish bali</small>
+                    </label>
+                    <label className="erp-field">
+                      <span>Status</span>
+                      <select value={checkForm.status} onChange={e => setCheckForm(prev => ({ ...prev, status: e.target.value }))}>
+                        <option value="ACCEPTED">Qabul qilingan</option>
+                        <option value="REJECTED">Qaytarilgan</option>
+                        <option value="PENDING">Kutmoqda</option>
+                      </select>
+                    </label>
+                    <label className="erp-field">
+                      <span>Izoh</span>
+                      <textarea value={checkForm.comment} onChange={e => setCheckForm(prev => ({ ...prev, comment: e.target.value }))} placeholder="Izohingiz" />
+                    </label>
+                    <div className="erp-check-actions">
+                      <button type="button" className="erp-outline-btn" onClick={() => setSelectedResult(null)}>Bekor qilish</button>
+                      <button className="erp-primary-btn" type="submit" disabled={checkingHomework || !selectedHomeworkId || !checkForm.studentId}>
+                        {checkingHomework ? 'Yuborilmoqda...' : 'Yuborish'}
+                      </button>
+                    </div>
+                  </section>
                 </form>
               )}
             </div>
@@ -1030,10 +1230,18 @@ export default function GroupDetail({ groupId }) {
                       <td>{index + 1}</td>
                       <td>
                         {row.url ? (
-                          <a className="erp-link-cell" href={row.url} target="_blank" rel="noreferrer">
-                            <Download size={18} />
-                            {row.name || 'Fayl'}
-                          </a>
+                          <div className="erp-file-actions">
+                            {isVideoFile(row) && (
+                              <button className="erp-link-cell" type="button" onClick={() => setPreviewVideo(row)}>
+                                <PlayCircle size={18} />
+                                Ko'rish
+                              </button>
+                            )}
+                            <a className="erp-link-cell" href={row.url} target="_blank" rel="noreferrer">
+                              <Download size={18} />
+                              {row.name || 'Fayl'}
+                            </a>
+                          </div>
                         ) : (
                           <span className="erp-link-cell"><PlayCircle size={18} /> {row.name || row.topic || 'Fayl'}</span>
                         )}
@@ -1093,7 +1301,7 @@ export default function GroupDetail({ groupId }) {
             <div className="erp-journal">
               <div className="erp-month-strip">
                 {lessonDays.map((day, index) => (
-                  <button key={`${day.value}-${index}`} className={index === selectedMonth ? 'active' : day.completed ? 'muted' : ''} onClick={() => setSelectedMonth(index)}>
+                  <button key={`${day.value}-${index}`} className={index === selectedMonth ? 'active' : day.completed ? 'muted' : ''} onClick={() => handleLessonDaySelect(day, index)}>
                     <span>{day.month}</span>
                     <strong>{day.day}</strong>
                   </button>
@@ -1102,6 +1310,10 @@ export default function GroupDetail({ groupId }) {
 
               <form className="erp-panel erp-attendance-form" onSubmit={handleLessonSubmit}>
                 <div className="erp-panel-title">Yo'qlama va mavzu kiritish</div>
+                <label className="erp-field">
+                  <span><b>*</b> Sana</span>
+                  <input type="date" value={lessonForm.date} onChange={e => setLessonForm(prev => ({ ...prev, date: e.target.value }))} required />
+                </label>
                 <div className="erp-radio-row">
                   <label>
                     <input
@@ -1146,23 +1358,38 @@ export default function GroupDetail({ groupId }) {
                   <textarea value={lessonForm.description} onChange={e => setLessonForm(prev => ({ ...prev, description: e.target.value }))} placeholder="Dars haqida qo'shimcha ma'lumot..." />
                 </label>
 
+                <div className={`erp-attendance-note ${attendanceWindow.open ? 'open' : 'closed'}`}>
+                  {attendanceWindow.message}
+                </div>
+
                 <div className="erp-attendance-table">
                   <div className="erp-attendance-head">
                     <span>#</span>
                     <span>O'quvchi ismi</span>
-                    <span>Keldi</span>
+                    <span>Davomat</span>
                   </div>
                   {students.length > 0 ? students.map((student, index) => (
                     <div key={student.id || student.name} className="erp-attendance-row">
                       <span>{index + 1}</span>
                       <span className="erp-student-cell"><span className="erp-mini-avatar">{student.initials}</span>{student.name}</span>
-                      <button
-                        type="button"
-                        disabled={!canEditAttendance}
-                        className={`erp-toggle ${lessonForm.attendance[student.id] === true ? 'on' : ''}`}
-                        onClick={() => toggleAttendance(student.id, lessonForm.attendance[student.id] !== true)}
-                        aria-label="Davomat"
-                      />
+                      <div className="erp-attendance-actions">
+                        <button
+                          type="button"
+                          disabled={!canEditAttendance}
+                          className={`erp-attendance-choice ${lessonForm.attendance[student.id] === true ? 'present' : ''}`}
+                          onClick={() => toggleAttendance(student.id, true)}
+                        >
+                          Keldi
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canEditAttendance}
+                          className={`erp-attendance-choice ${lessonForm.attendance[student.id] === false ? 'absent' : ''}`}
+                          onClick={() => toggleAttendance(student.id, false)}
+                        >
+                          Kelmadi
+                        </button>
+                      </div>
                     </div>
                   )) : (
                     <div className="erp-empty-table">Bu guruhda o'quvchilar topilmadi.</div>
@@ -1217,6 +1444,22 @@ export default function GroupDetail({ groupId }) {
         </section>
       )}
 
+      {previewVideo && (
+        <div className="erp-modal-overlay" onClick={() => setPreviewVideo(null)}>
+          <div className="erp-video-modal erp-video-preview-modal" onClick={e => e.stopPropagation()}>
+            <div className="erp-video-modal-head">
+              <h2>{previewVideo.name || 'Video'}</h2>
+              <button onClick={() => setPreviewVideo(null)} aria-label="Yopish">
+                <X size={22} />
+              </button>
+            </div>
+            <div className="erp-video-preview-body">
+              <video src={previewVideo.url} controls autoPlay />
+            </div>
+          </div>
+        </div>
+      )}
+
       {isVideoModalOpen && (
         <div className="erp-modal-overlay" onClick={closeVideoModal}>
           <div className="erp-video-modal" onClick={e => e.stopPropagation()}>
@@ -1260,7 +1503,7 @@ export default function GroupDetail({ groupId }) {
                     <span>{videoFile.name}</span>
                     <select value={videoLessonId} onChange={e => setVideoLessonId(e.target.value)} required>
                       <option value="">Darsni tanlang</option>
-                      {videoRows.map((lesson, index) => (
+                      {allLessons.map((lesson, index) => (
                         <option key={lesson.id || index} value={lesson.id || index}>{lesson.topic || `Dars ${index + 1}`}</option>
                       ))}
                     </select>

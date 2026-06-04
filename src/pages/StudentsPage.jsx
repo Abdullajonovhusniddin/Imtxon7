@@ -13,8 +13,11 @@ import {
   Calendar as CalendarIcon
 } from 'lucide-react'
 import { buildApiUrl, deleteJson, getJson, patchJson, postJson } from '../api'
+import { createTranslator } from '../i18n'
 
-const STUDENTS_LIMIT = 10
+const getViewportRowsLimit = () => {
+  return 5
+}
 
 const getApiItems = (response) => {
   const data = response?.data ?? response
@@ -82,13 +85,15 @@ const mapStudent = (item = {}) => {
   }
 }
 
-function StudentsPage() {
+function StudentsPage({ language = 'uz' }) {
+  const t = createTranslator(language)
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [apiError, setApiError] = useState('')
   const [activeTab, setActiveTab] = useState('active')
   const [page, setPage] = useState(1)
+  const [pageLimit, setPageLimit] = useState(getViewportRowsLimit)
   const [total, setTotal] = useState(0)
   const [saving, setSaving] = useState(false)
   const [editingStudent, setEditingStudent] = useState(null)
@@ -239,7 +244,7 @@ function StudentsPage() {
     try {
       const response = nextTab === 'archive'
         ? await getJson('/students/archive')
-        : await getJson('/students', { params: { page: nextPage, limit: STUDENTS_LIMIT } })
+        : await getJson('/students', { params: { page: nextPage, limit: pageLimit } })
 
       const mappedData = getApiItems(response).map(mapStudent)
       setStudents(mappedData)
@@ -256,6 +261,24 @@ function StudentsPage() {
   useEffect(() => {
     queueMicrotask(() => loadData(1, 'active'))
   }, [])
+
+  useEffect(() => {
+    const handleResize = () => {
+      const nextLimit = getViewportRowsLimit()
+      setPageLimit(prev => {
+        if (prev === nextLimit) return prev
+        setPage(1)
+        return nextLimit
+      })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'archive') loadData(1, activeTab)
+  }, [pageLimit])
 
   const handleTabChange = (tab) => {
     setActiveTab(tab)
@@ -305,14 +328,14 @@ function StudentsPage() {
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / STUDENTS_LIMIT))
+  const totalPages = Math.max(1, Math.ceil(total / pageLimit))
 
   return (
     <div className="students-page animate-fade-in max-lg:!gap-4">
       {/* HEADER SECTION */}
       <div className="students-header max-lg:!flex max-lg:!flex-row max-lg:!items-start max-lg:!justify-between max-lg:!gap-4 max-md:!grid max-md:!grid-cols-1 max-md:!gap-3">
         <div className="header-left">
-          <h1 className="page-title max-md:!text-3xl max-md:!leading-tight">Talabalar</h1>
+          <h1 className="page-title max-md:!text-3xl max-md:!leading-tight">{t('pages.students')}</h1>
           <p className="page-subtitle max-md:!max-w-full max-md:!text-sm">
             Ushbu sahifada siz Talabalar ro'yxatini va ularning ma'lumotlarini topasiz.
             Har bir Talaba ismi, fanlari va aloqa ma'lumotlari keltirilgan.
@@ -320,7 +343,7 @@ function StudentsPage() {
         </div>
         <button className="add-student-btn max-lg:!w-auto max-lg:!min-w-fit max-lg:!rounded-xl max-md:!w-full max-md:!justify-center" onClick={() => openModal()}>
           <Plus size={20} />
-          Talaba qo'shish
+          {t('actions.addStudent')}
         </button>
       </div>
 
@@ -331,7 +354,7 @@ function StudentsPage() {
             <Search size={18} className="search-icon" />
             <input
               type="text"
-              placeholder="Search"
+              placeholder={t('actions.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input"
@@ -340,7 +363,7 @@ function StudentsPage() {
           <div className="action-buttons max-lg:!flex max-lg:!flex-row max-md:!grid max-md:!grid-cols-2 max-sm:!grid-cols-1 max-md:!gap-2">
             <button className="control-btn max-md:!justify-center" type="button" onClick={() => loadData(page, activeTab)}>
               <Filter size={18} />
-              Yangilash
+              {t('actions.refresh')}
             </button>
             <button
               className="control-btn max-md:!justify-center"
@@ -348,7 +371,7 @@ function StudentsPage() {
               onClick={() => handleTabChange(activeTab === 'archive' ? 'active' : 'archive')}
               style={activeTab === 'archive' ? { borderColor: '#7c3aed', color: '#7c3aed' } : undefined}
             >
-              {activeTab === 'archive' ? 'Faol talabalar' : 'Arxiv'}
+              {activeTab === 'archive' ? t('actions.activeStudents') : t('actions.archive')}
             </button>
           </div>
         </div>
@@ -407,7 +430,7 @@ function StudentsPage() {
               ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--sub)' }}>
-                    {activeTab === 'archive' ? 'Arxivlangan talabalar topilmadi.' : 'Talabalar topilmadi.'}
+                    {activeTab === 'archive' ? t('empty.archivedStudents') : t('empty.students')}
                   </td>
                 </tr>
               ) : filteredStudents.map(student => (
@@ -455,13 +478,13 @@ function StudentsPage() {
         <div className="pagination max-lg:!static max-lg:!m-0 max-lg:!rounded-none max-lg:!bg-transparent max-lg:!p-0 max-lg:!shadow-none max-sm:!gap-2">
           <button className="pagination-arrow" onClick={() => handlePageChange(page - 1)} disabled={activeTab === 'archive' || page <= 1 || loading}>
             <ChevronLeft size={18} />
-            Previous
+            {t('actions.previous')}
           </button>
           <div className="page-numbers">
             <button className="page-num active">{page} / {totalPages}</button>
           </div>
           <button className="pagination-arrow" onClick={() => handlePageChange(page + 1)} disabled={activeTab === 'archive' || page >= totalPages || loading}>
-            Next
+            {t('actions.next')}
             <ChevronRight size={18} />
           </button>
         </div>
@@ -597,9 +620,9 @@ function StudentsPage() {
               </div>
 
               <div className="s-modal-actions">
-                <button type="button" className="s-btn-cancel" onClick={closeModal}>Bekor qilish</button>
+                <button type="button" className="s-btn-cancel" onClick={closeModal}>{t('actions.cancel')}</button>
                 <button type="submit" className="s-btn-submit active" disabled={saving}>
-                  {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+                  {saving ? t('actions.saving') : t('actions.save')}
                 </button>
               </div>
 
@@ -732,8 +755,8 @@ function StudentsPage() {
             </div>
 
             <div className="s-modal-actions" style={{ justifyContent: 'space-between', marginTop: '1rem' }}>
-              <button type="button" className="s-btn-cancel" onClick={closeGroupAssign}>Bekor qilish</button>
-              <button type="button" className="s-btn-submit active" onClick={closeGroupAssign}>Qo'shish</button>
+              <button type="button" className="s-btn-cancel" onClick={closeGroupAssign}>{t('actions.cancel')}</button>
+              <button type="button" className="s-btn-submit active" onClick={closeGroupAssign}>{t('actions.add')}</button>
             </div>
           </div>
         </div>

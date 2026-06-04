@@ -8,19 +8,28 @@ import {
   Filter,
   Upload,
   Calendar as CalendarIcon,
-  Mail
+  Mail,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { deleteJson, getJson, patchJson, postJson } from '../api'
+import { createTranslator } from '../i18n'
 
 const TEACHERS_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers'
 const TEACHERS_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers/archive'
 const TEACHER_ONE_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers/one'
+const getViewportRowsLimit = () => {
+  return 5
+}
 
-function TeachersPage() {
+function TeachersPage({ language = 'uz' }) {
+  const t = createTranslator(language)
   const [teachers, setTeachers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState('active')
+  const [page, setPage] = useState(1)
+  const [pageLimit, setPageLimit] = useState(getViewportRowsLimit)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTeacher, setEditingTeacher] = useState(null)
   const [failedPhotoIds, setFailedPhotoIds] = useState([])
@@ -162,9 +171,24 @@ function TeachersPage() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    const handleResize = () => {
+      const nextLimit = getViewportRowsLimit()
+      setPageLimit(prev => {
+        if (prev === nextLimit) return prev
+        setPage(1)
+        return nextLimit
+      })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const handleTabChange = (tab) => {
     setActiveTab(tab)
     setSearch('')
+    setPage(1)
     loadTeachers(tab)
   }
 
@@ -172,6 +196,13 @@ function TeachersPage() {
     const fullName = String(t.name || t.full_name || '')
     return fullName.toLowerCase().includes(search.toLowerCase())
   })
+  const totalPages = Math.max(1, Math.ceil(filteredTeachers.length / pageLimit))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedTeachers = filteredTeachers.slice((currentPage - 1) * pageLimit, currentPage * pageLimit)
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1 || nextPage > totalPages) return
+    setPage(nextPage)
+  }
 
   const handleAddGroup = (group) => {
     if (!formData.groups.find(g => g.id === group.id)) {
@@ -387,7 +418,7 @@ function TeachersPage() {
       {/* HEADER SECTION */}
       <div className="students-header">
         <div className="header-left">
-          <h1 className="page-title">O'qituvchilar</h1>
+          <h1 className="page-title">{t('pages.teachers')}</h1>
           <p className="page-subtitle">
             Ushbu sahifada siz barcha O'qituvchilar ro'yxatini va ularning ma'lumotlarini topasiz. 
             O'qituvchilarning yo'nalishi, telefon raqami va statusi keltirilgan.
@@ -395,7 +426,7 @@ function TeachersPage() {
         </div>
         <button className="add-student-btn" onClick={() => openModal()}>
           <Plus size={20} />
-          O'qituvchi qo'shish
+          {t('actions.addTeacher')}
         </button>
       </div>
 
@@ -406,28 +437,31 @@ function TeachersPage() {
             <Search size={18} className="search-icon" />
             <input 
               type="text" 
-              placeholder="Search" 
+              placeholder={t('actions.search')} 
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               className="search-input"
             />
           </div>
           <div className="action-buttons">
             <button className="control-btn">
               <Filter size={18} />
-              Filters
+              {t('actions.filters')}
             </button>
             <button
               className={`control-btn ${activeTab === 'active' ? 'active' : ''}`}
               onClick={() => handleTabChange('active')}
             >
-              Faol
+              {t('actions.active')}
             </button>
             <button
               className={`control-btn ${activeTab === 'archive' ? 'active' : ''}`}
               onClick={() => handleTabChange('archive')}
             >
-              Arxiv
+              {t('actions.archive')}
             </button>
           </div>
         </div>
@@ -480,7 +514,13 @@ function TeachersPage() {
                     </td>
                   </tr>
                 ))
-              ) : filteredTeachers.map((teacher) => (
+              ) : paginatedTeachers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--sub)' }}>
+                    {t('empty.teachers')}
+                  </td>
+                </tr>
+              ) : paginatedTeachers.map((teacher) => (
                 <tr key={teacher.id}>
                   <td><input type="checkbox" /></td>
                   <td>
@@ -537,6 +577,20 @@ function TeachersPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="pagination max-lg:!static max-lg:!m-0 max-lg:!rounded-none max-lg:!bg-transparent max-lg:!p-0 max-lg:!shadow-none max-sm:!gap-2">
+          <button className="pagination-arrow" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1 || loading}>
+            <ChevronLeft size={18} />
+            {t('actions.previous')}
+          </button>
+          <div className="page-numbers">
+            <button className="page-num active">{currentPage} / {totalPages}</button>
+          </div>
+          <button className="pagination-arrow" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages || loading}>
+            {t('actions.next')}
+            <ChevronRight size={18} />
+          </button>
         </div>
 
       </div>
@@ -708,9 +762,9 @@ function TeachersPage() {
               </div>
 
               <div className="s-modal-actions" style={{ justifyContent: 'flex-end', paddingTop: '1rem' }}>
-                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={closeModal}>Bekor qilish</button>
+                <button type="button" className="s-btn-cancel" style={{ flex: 'none', padding: '0.75rem 1.5rem' }} onClick={closeModal}>{t('actions.cancel')}</button>
                 <button type="submit" className="s-btn-submit active" disabled={saving} style={{ flex: 'none', padding: '0.75rem 2rem' }}>
-                  {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+                  {saving ? t('actions.saving') : t('actions.save')}
                 </button>
               </div>
             </form>

@@ -261,9 +261,21 @@ function DashboardPage({ activePage = 'dashboard' }) {
   const { subId, id } = useParams()
   const userPhone = localStorage.getItem('userPhone') || 'Admin'
   const userRole = getUserRole()
+  const isTeacherUser = ['teacher', 'oqituvchi'].includes(userRole)
+  const getRoleLabel = (role) => {
+    const normalized = String(role || '').toLowerCase()
+    if (normalized === 'superadmin' || normalized === 'super_admin' || normalized === 'super admin') return 'Super Admin'
+    if (normalized === 'admin') return 'Admin'
+    if (normalized === 'student' || normalized === 'talaba') return 'Talaba'
+    if (normalized === 'teacher' || normalized === 'oqituvchi') return 'erp.teacher'
+    return 'Admin'
+  }
+  const greetingName = getRoleLabel(userRole)
   const isStudentUser = ['student', 'talaba'].includes(userRole)
   const availableMenuItems = isStudentUser
     ? menuItems.filter(item => item.id === 'asosiy' || item.id === 'guruhlar')
+    : isTeacherUser
+      ? menuItems.filter(item => item.id === 'asosiy' || item.id === 'guruhlar')
     : menuItems
   
   // ── API STATES (Use these for backend connection) ──
@@ -411,7 +423,7 @@ function DashboardPage({ activePage = 'dashboard' }) {
   }
 
   return (
-    <div className={`db-wrapper min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 lg:!flex ${darkMode ? 'dark' : ''}`}>
+    <div className={`db-wrapper min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 lg:!flex ${darkMode ? 'dark' : ''} ${isTeacherUser ? 'erp-teacher-shell' : ''}`}>
 
       {/* Mobile overlay */}
       {mobileSidebar && (
@@ -430,7 +442,7 @@ function DashboardPage({ activePage = 'dashboard' }) {
             <span className="db-logo-icon">
               <GraduationCap size={28} color="#7c3aed" />
             </span>
-            {!sidebarCollapsed && <span className="db-logo-text">EduNajot</span>}
+            {!sidebarCollapsed && <span className="db-logo-text">{isTeacherUser ? 'erp.teacher' : 'EduNajot'}</span>}
           </div>
           <button 
             className="db-sidebar-toggle" 
@@ -597,8 +609,8 @@ function DashboardPage({ activePage = 'dashboard' }) {
                 {/* Welcome */}
                 <div className="db-welcome">
                   <div>
-                    <h2 className="db-welcome-title">{t.topbar.hello}, {userPhone}!</h2>
-                    <p className="db-welcome-sub">{t.topbar.welcome}</p>
+                    <h2 className="db-welcome-title">{t.topbar.hello}, {greetingName}!</h2>
+                    <p className="db-welcome-sub">{isTeacherUser ? 'Guruhlar, davomat, videolar va uy vazifalarni ERP panelda boshqaring.' : t.topbar.welcome}</p>
                   </div>
                 </div>
 
@@ -662,13 +674,13 @@ function DashboardPage({ activePage = 'dashboard' }) {
             )}
 
             {/* ── TEACHERS ── */}
-            {activeMenu === 'oqituvchilar' && <TeachersPage />}
+            {activeMenu === 'oqituvchilar' && <TeachersPage language={language} />}
 
             {/* ── STUDENTS ── */}
             {activeMenu === 'talabalar' && <StudentsPage language={language} />}
 
             {/* ── GROUPS ── */}
-            {activeMenu === 'guruhlar' && (id ? <GroupDetail groupId={id} /> : <GroupsPage language={language} />)}
+            {activeMenu === 'guruhlar' && (id ? <GroupDetail groupId={id} language={language} /> : <GroupsPage language={language} />)}
 
             {/* ── GIFTS / SOVG'ALAR ── */}
             {activeMenu === 'sovgalar' && (
