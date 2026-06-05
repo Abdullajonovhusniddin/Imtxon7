@@ -1201,6 +1201,139 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   box-shadow: var(--shadow-lg);
 }
 
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 2100;
+}
+
+.confirm-modal-content {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 22px;
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.confirm-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.confirm-modal-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.confirm-modal-text {
+  font-size: 0.95rem;
+  color: #475569;
+  margin-top: 0.25rem;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.confirm-modal-actions .s-btn-cancel {
+  background: transparent;
+  border-color: transparent;
+  color: #64748b;
+  font-weight: 700;
+  padding: 0.75rem 0.85rem;
+}
+
+.confirm-modal-actions .s-btn-cancel:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.confirm-modal-confirm {
+  padding: 0.9rem 1.5rem;
+  border: none;
+  border-radius: 14px;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.confirm-modal-confirm:hover {
+  background: #dc2626;
+}
+
+.dark .confirm-modal-content {
+  background: #1e293b;
+  color: #fff;
+}
+
+.dark .confirm-modal-text {
+  color: #cbd5e1;
+}
+
+.dark .confirm-modal-confirm {
+  background: #ef4444;
+}
+
+.dark .confirm-modal-confirm:hover {
+  background: #dc2626;
+}
+
+.dark .confirm-modal-overlay {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.dark .confirm-modal-content {
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+}
+
+.dark .confirm-modal-header {
+  color: #f8fafc;
+}
+
+.dark .confirm-modal-title {
+  color: #f8fafc;
+}
+
+.dark .confirm-modal-actions .s-btn-cancel {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+.dark .confirm-modal-actions .s-btn-cancel:hover {
+  background: #111827;
+}
+
+.dark .confirm-modal-confirm {
+  color: #fff;
+}
+
+.dark .confirm-modal-confirm:hover {
+  background: #b91c1c;
+}
+
+.dark .s-modal-close {
+  color: #cbd5e1;
+}
+
+.dark .s-modal-close:hover {
+  color: #fff;
+}
+
 .dark .modal-content { background: #1e293b; color: #fff; }
 
 .modal-header {
@@ -1949,7 +2082,7 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
 .db-user-avatar-purple:hover { transform: scale(1.05); }
 
 /* ===================== STUDENT MODAL ===================== */
-.student-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; justify-content: flex-end; z-index: 1000; }
+.student-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: stretch; justify-content: flex-end; padding: 0; z-index: 1000; }
 .student-modal-content { background: #fff; width: 100%; max-width: 450px; height: 100vh; max-height: 100vh; border-radius: 0; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; box-shadow: -5px 0 30px rgba(0,0,0,0.15); animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes slideInRight {
   from { transform: translateX(100%); }
@@ -4512,17 +4645,18 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
 
   .student-modal-overlay,
   .group-side-overlay {
-    align-items: flex-end;
-    justify-content: center;
-    padding: 0.75rem;
+    align-items: stretch;
+    justify-content: flex-end;
+    padding: 0;
   }
 
   .student-modal-content,
   .group-side-panel {
     width: 100%;
     max-width: 680px;
-    height: min(88dvh, 760px);
-    border-radius: 28px;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
     padding: 1.15rem;
     box-shadow: 0 -20px 70px rgba(15, 23, 42, 0.22);
   }
@@ -5022,12 +5156,12 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
 
   .student-modal-overlay,
   .group-side-overlay {
-    @apply items-end justify-center p-3;
+    @apply items-stretch justify-end p-0;
   }
 
   .student-modal-content,
   .group-side-panel {
-    @apply h-[min(88dvh,760px)] w-full max-w-[680px] rounded-[28px] p-5 shadow-2xl;
+    @apply h-dvh max-h-dvh w-full max-w-[680px] rounded-none p-5 shadow-2xl;
   }
 
   .group-assign-overlay {
@@ -5219,8 +5353,7 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
   }
 
   .db-sidebar {
-    @apply fixed left-0 top-0 z-[220] m-2 h-[calc(100dvh-1rem)] min-h-0 w-[280px] min-w-[280px] translate-x-[-110%] rounded-3xl p-0 shadow-2xl;
-    bottom: auto;
+    @apply fixed left-0 top-0 right-auto bottom-0 z-[220] m-0 h-dvh min-h-0 w-[280px] min-w-[280px] translate-x-[-110%] rounded-none p-0 shadow-2xl;
   }
 
   .db-sidebar.mobile-open {
@@ -5548,6 +5681,33 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
 
 .students-header {
   gap: 0.85rem;
+}
+
+/* Final modal overlay override to remove any top/right gaps */
+.student-modal-overlay,
+.group-side-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: flex-end !important;
+}
+
+.student-modal-content,
+.group-side-panel {
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 450px !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  border-radius: 0 !important;
+  padding: 1.5rem 2rem !important;
 }
 
 .page-title {

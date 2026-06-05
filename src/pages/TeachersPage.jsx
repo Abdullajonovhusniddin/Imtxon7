@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { deleteJson, getJson, patchJson, postJson } from '../api'
 import { createTranslator } from '../i18n'
+import ConfirmModal from '../components/ConfirmModal'
 
 const TEACHERS_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers'
 const TEACHERS_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers/archive'
@@ -35,6 +36,28 @@ function TeachersPage({ language = 'uz' }) {
   const [failedPhotoIds, setFailedPhotoIds] = useState([])
   const [photoFile, setPhotoFile] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  })
+
+  const openConfirmModal = ({ title, message, onConfirm }) => {
+    setConfirmModal({ open: true, title, message, onConfirm })
+  }
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, title: '', message: '', onConfirm: null })
+  }
+
+  const handleConfirm = async () => {
+    if (typeof confirmModal.onConfirm === 'function') {
+      await confirmModal.onConfirm()
+    }
+    closeConfirmModal()
+  }
 
   // Form states
   const [formData, setFormData] = useState({ name: '', email: '', address: '', groups: [], phone: '', birthDate: '', gender: '', password: '', coin: '0', status: 'Aktiv' })
@@ -401,9 +424,7 @@ function TeachersPage({ language = 'uz' }) {
     }
   }
 
-  const deleteTeacher = async (id) => {
-    if (!window.confirm("Haqiqatan ham bu o'qituvchini o'chirmoqchimisiz?")) return
-
+  const performDeleteTeacher = async (id) => {
     try {
       await deleteJson(`${TEACHERS_API}/${id}`)
       setTeachers(prev => prev.filter(t => t.id !== id))
@@ -411,6 +432,14 @@ function TeachersPage({ language = 'uz' }) {
       console.error('Teacher delete error:', err)
       alert(err.message || "O'qituvchini o'chirishda xatolik yuz berdi.")
     }
+  }
+
+  const deleteTeacher = (id) => {
+    openConfirmModal({
+      title: "O'qituvchini o'chirish",
+      message: "Haqiqatan ham bu o'qituvchini o'chirmoqchimisiz?",
+      onConfirm: () => performDeleteTeacher(id),
+    })
   }
 
   return (
@@ -771,6 +800,13 @@ function TeachersPage({ language = 'uz' }) {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirmModal}
+      />
     </div>
   )
 }

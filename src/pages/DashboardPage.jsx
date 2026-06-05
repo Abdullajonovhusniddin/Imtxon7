@@ -433,16 +433,15 @@ function DashboardPage({ activePage = 'dashboard' }) {
       {/* ───── SIDEBAR ───── */}
       <aside
         ref={sidebarRef}
-        className={`db-sidebar max-lg:!fixed max-lg:!left-0 max-lg:!top-0 max-lg:!z-[220] max-lg:!m-2 max-lg:!h-[calc(100dvh-1rem)] max-lg:!min-h-0 max-lg:!w-[280px] max-lg:!min-w-[280px] max-lg:!rounded-3xl max-lg:!shadow-2xl max-lg:!transition-transform max-lg:!duration-300 max-sm:!m-0 max-sm:!h-dvh max-sm:!w-[82vw] max-sm:!rounded-none ${mobileSidebar ? 'mobile-open max-lg:!translate-x-0' : 'max-lg:!-translate-x-[110%]'} ${sidebarCollapsed ? 'collapsed' : ''}`}
-      >
-
+        className={`db-sidebar max-lg:!fixed max-lg:!right-0 max-lg:!top-0 max-lg:!z-[220] max-lg:!m-0 max-lg:!h-dvh max-lg:!min-h-dvh max-lg:!w-[280px] max-lg:!min-w-[280px] max-lg:!rounded-none max-lg:!shadow-2xl max-lg:!transition-transform max-lg:!duration-300 max-sm:!m-0 max-sm:!h-dvh max-sm:!w-[82vw] max-sm:!rounded-none ${mobileSidebar ? 'mobile-open max-lg:!translate-x-0' : 'max-lg:!-translate-x-[110%]'} ${sidebarCollapsed ? 'collapsed' : ''}`} 
+        >
         {/* Logo & Toggle */}
         <div className="db-logo">
           <div className="db-logo-main">
-            <span className="db-logo-icon">
-              <GraduationCap size={28} color="#7c3aed" />
+            <span className="db-logo-icon najot-logo-mark">
+              <GraduationCap size={22} color="#7c3aed" />
             </span>
-            {!sidebarCollapsed && <span className="db-logo-text">{isTeacherUser ? 'erp.teacher' : 'EduNajot'}</span>}
+            {!sidebarCollapsed && <span className="db-logo-text">{isTeacherUser ? 'erp.teacher' : 'NajotEdu'}</span>}
           </div>
           <button 
             className="db-sidebar-toggle" 

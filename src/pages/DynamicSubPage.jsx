@@ -10,6 +10,7 @@ import {
   Trash2,
   X
 } from 'lucide-react'
+import ConfirmModal from '../components/ConfirmModal'
 
 const subPageData = {
   kurslar: { title: 'Kurslar', icon: BookOpen, desc: 'Akademiyadagi barcha mavjud kurslar ro\'yxati.' },
@@ -40,28 +41,22 @@ const mapCourse = (course, fallback = {}) => ({
 
 function DynamicSubPage({ id }) {
   const [items, setItems] = useState([])
-
-  const branchFilters = ['Filial 1', 'Filial 2', 'Arxiv']
   const [selectedBranch, setSelectedBranch] = useState('Filial 1')
-
-  const branchOptions = ['Filial 1', 'Filial 2', 'Filial 3']
-  const colorOptions = ['#111827', '#7c3aed', '#dc2626', '#ea580c', '#15803d', '#0ea5e9', '#9333ea', '#f43f5e']
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [saving, setSaving] = useState(false)
   const [newItem, setNewItem] = useState({
     name: '',
-    branches: [],
     durationMonth: '',
     durationHours: '',
     price: '',
     description: '',
-    color: '#7c3aed',
     students: 0,
   })
 
-  // Load courses from API
+  const branchFilters = ['Filial 1', 'Arxiv']
+
   const loadCourses = async (archive = selectedBranch === 'Arxiv') => {
     if (id !== 'kurslar') return
 
@@ -76,40 +71,21 @@ function DynamicSubPage({ id }) {
   }
 
   useEffect(() => {
-    queueMicrotask(() => loadCourses(false))
-  }, [id])
+    queueMicrotask(loadCourses)
+  }, [id, selectedBranch])
 
   const data = subPageData[id] || { title: 'Sahifa', icon: FileText, desc: 'Ma\'lumot topilmadi.' }
   const PageIcon = data.icon
-
-  const toggleBranch = (branch) => {
-    setNewItem((prev) => ({
-      ...prev,
-      branches: prev.branches.includes(branch)
-        ? prev.branches.filter((b) => b !== branch)
-        : [...prev.branches, branch],
-    }))
-  }
-
-  const selectAllBranches = () => {
-    setNewItem((prev) => ({
-      ...prev,
-      branches: prev.branches.length === branchOptions.length ? [] : branchOptions,
-    }))
-  }
 
   const getCourseId = (course) => course?.id ?? course?.course_id ?? course?._id
 
   const handleBranchChange = (branch) => {
     setSelectedBranch(branch)
-    if (id === 'kurslar') {
-      loadCourses(branch === 'Arxiv')
-    }
   }
 
   const resetCourseForm = () => {
     setEditingItem(null)
-    setNewItem({ name: '', branches: [], durationMonth: '', durationHours: '', price: '', description: '', color: '#7c3aed', students: 0 })
+    setNewItem({ name: '', durationMonth: '', durationHours: '', price: '', description: '', students: 0 })
   }
 
   const fillCourseForm = (course) => {
@@ -117,12 +93,10 @@ function DynamicSubPage({ id }) {
     setEditingItem(mapped)
     setNewItem({
       name: mapped.name || '',
-      branches: mapped.branch && mapped.branch !== 'Arxiv' ? [mapped.branch] : [],
       durationMonth: mapped.durationMonth ? String(mapped.durationMonth) : '',
       durationHours: mapped.durationHours ? String(mapped.durationHours) : '',
       price: mapped.price || '',
       description: mapped.description || '',
-      color: mapped.color || '#7c3aed',
       students: mapped.students || 0,
     })
   }
@@ -157,6 +131,28 @@ function DynamicSubPage({ id }) {
     resetCourseForm()
   }
 
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  })
+
+  const openConfirmModal = ({ title, message, onConfirm }) => {
+    setConfirmModal({ open: true, title, message, onConfirm })
+  }
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, title: '', message: '', onConfirm: null })
+  }
+
+  const handleConfirm = async () => {
+    if (typeof confirmModal.onConfirm === 'function') {
+      await confirmModal.onConfirm()
+    }
+    closeConfirmModal()
+  }
+
   const handleAdd = async (e) => {
     e.preventDefault()
     if (saving) return
@@ -165,8 +161,7 @@ function DynamicSubPage({ id }) {
     const localItem = {
       ...newItem,
       uiId: Date.now(),
-      branch: newItem.branches[0] || 'Filial 1',
-      color: newItem.color,
+      branch: 'Filial 1',
       description: newItem.description || 'Kurs haqida ma\'lumot.',
       lessonDuration: `${Number(newItem.durationHours) || 0} soat`,
       courseLength: `${Number(newItem.durationMonth) || 0} oy`,
@@ -215,8 +210,7 @@ function DynamicSubPage({ id }) {
     setSaving(false)
   }
 
-  const deleteItem = async (itemId) => {
-    if (!window.confirm("O'chirmoqchimisiz?")) return
+  const performDeleteItem = async (itemId) => {
     if (!itemId) {
       alert("Kurs ID topilmadi. API'dan id, course_id yoki _id kelayotganini tekshiring.")
       return
@@ -233,10 +227,15 @@ function DynamicSubPage({ id }) {
     }
   }
 
-  const filteredItems = items.filter((item) => {
-    if (selectedBranch === 'Arxiv') return item.branch === 'Arxiv'
-    return item.branch === selectedBranch
-  })
+  const deleteItem = (itemId) => {
+    openConfirmModal({
+      title: "Kursni o'chirish",
+      message: "Haqiqatan ham bu kursni o'chirmoqchimisiz?",
+      onConfirm: () => performDeleteItem(itemId),
+    })
+  }
+
+  const filteredItems = items
 
   return (
     <div className="courses-page">
@@ -322,26 +321,6 @@ function DynamicSubPage({ id }) {
                 />
               </div>
 
-              <div className="s-form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label className="s-form-label">Kurs mavjud bo'ladigan filial(lar)</label>
-                  <button type="button" className="s-btn-cancel" style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem' }} onClick={selectAllBranches}>
-                    Hammisini tanlash
-                  </button>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
-                  {branchOptions.map((branch) => (
-                    <label key={branch} className="s-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={newItem.branches.includes(branch)}
-                        onChange={() => toggleBranch(branch)}
-                      />
-                      {branch}
-                    </label>
-                  ))}
-                </div>
-              </div>
 
               <div className="s-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
@@ -390,26 +369,6 @@ function DynamicSubPage({ id }) {
                 />
               </div>
 
-              <div className="s-form-group">
-                <label className="s-form-label">Rangi</label>
-                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setNewItem({ ...newItem, color })}
-                      style={{
-                        width: '34px',
-                        height: '34px',
-                        borderRadius: '50%',
-                        border: newItem.color === color ? '3px solid #1e293b' : '2px solid #e2e8f0',
-                        background: color,
-                        cursor: 'pointer',
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
 
               <div className="s-modal-actions">
                 <button type="button" className="s-btn-cancel" onClick={closeModal}>Bekor qilish</button>
@@ -421,9 +380,15 @@ function DynamicSubPage({ id }) {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirmModal}
+      />
     </div>
   )
 }
 
 export default DynamicSubPage
-

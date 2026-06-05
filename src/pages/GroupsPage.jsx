@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { deleteJson, getJson, getUserRole, patchJson, postJson } from '../api'
 import { createTranslator } from '../i18n'
+import ConfirmModal from '../components/ConfirmModal'
 
 const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
 const GROUPS_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups'
@@ -81,6 +82,28 @@ function GroupsPage({ language = 'uz' }) {
     maxStudent: '0',
     description: ''
   })
+
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  })
+
+  const openConfirmModal = ({ title, message, onConfirm }) => {
+    setConfirmModal({ open: true, title, message, onConfirm })
+  }
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, title: '', message: '', onConfirm: null })
+  }
+
+  const handleConfirm = async () => {
+    if (typeof confirmModal.onConfirm === 'function') {
+      await confirmModal.onConfirm()
+    }
+    closeConfirmModal()
+  }
 
   // Modal states for adding students to a group
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false)
@@ -491,9 +514,7 @@ function GroupsPage({ language = 'uz' }) {
     }))
   }
 
-  const deleteGroup = async (id) => {
-    if (!window.confirm("Haqiqatan ham bu guruhni o'chirmoqchimisiz?")) return
-
+  const performDeleteGroup = async (id) => {
     try {
       await deleteJson(`${GROUPS_API}/${id}`)
       setGroups(prev => prev.filter(group => group.id !== id))
@@ -501,6 +522,14 @@ function GroupsPage({ language = 'uz' }) {
       console.error('Group delete error:', err)
       alert(err.message || "Guruhni o'chirishda xatolik yuz berdi.")
     }
+  }
+
+  const deleteGroup = (id) => {
+    openConfirmModal({
+      title: "Guruhni o'chirish",
+      message: "Haqiqatan ham bu guruhni o'chirmoqchimisiz?",
+      onConfirm: () => performDeleteGroup(id),
+    })
   }
 
   const formatDays = (daysArray) => {
@@ -1267,6 +1296,13 @@ function GroupsPage({ language = 'uz' }) {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirmModal}
+      />
     </div>
   )
 }

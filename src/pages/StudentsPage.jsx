@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { buildApiUrl, deleteJson, getJson, patchJson, postJson } from '../api'
 import { createTranslator } from '../i18n'
+import ConfirmModal from '../components/ConfirmModal'
 
 const getViewportRowsLimit = () => {
   return 5
@@ -316,9 +317,29 @@ function StudentsPage({ language = 'uz' }) {
     String(s.email).toLowerCase().includes(search.toLowerCase())
   )
 
-  const deleteStudent = async (id) => {
-    if (!window.confirm("Haqiqatan ham bu talabani o'chirmoqchimisiz?")) return
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  })
 
+  const openConfirmModal = ({ title, message, onConfirm }) => {
+    setConfirmModal({ open: true, title, message, onConfirm })
+  }
+
+  const closeConfirmModal = () => {
+    setConfirmModal({ open: false, title: '', message: '', onConfirm: null })
+  }
+
+  const handleConfirm = async () => {
+    if (typeof confirmModal.onConfirm === 'function') {
+      await confirmModal.onConfirm()
+    }
+    closeConfirmModal()
+  }
+
+  const performDeleteStudent = async (id) => {
     try {
       await deleteJson(`/students/${id}`)
       setStudents(prev => prev.filter(student => student.id !== id))
@@ -326,6 +347,14 @@ function StudentsPage({ language = 'uz' }) {
       console.error('Student delete error:', err)
       alert(err.message || "Talabani o'chirishda xatolik yuz berdi.")
     }
+  }
+
+  const deleteStudent = (id) => {
+    openConfirmModal({
+      title: "Talabani o'chirish",
+      message: "Haqiqatan ham bu talabani o'chirmoqchimisiz?",
+      onConfirm: () => performDeleteStudent(id),
+    })
   }
 
   const totalPages = Math.max(1, Math.ceil(total / pageLimit))
@@ -761,6 +790,14 @@ function StudentsPage({ language = 'uz' }) {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={handleConfirm}
+        onCancel={closeConfirmModal}
+      />
 
     </div>
   )
