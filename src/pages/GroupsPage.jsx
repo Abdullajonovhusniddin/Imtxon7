@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
-  Search, 
   Plus, 
-  Filter, 
   Trash2, 
   Pencil,
   ChevronLeft, 
@@ -17,12 +15,13 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { deleteJson, getJson, getUserRole, patchJson, postJson } from '../api'
+import styles from './GroupsPage.module.css'
 import { createTranslator } from '../i18n'
 import ConfirmModal from '../components/ConfirmModal'
 
-const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
-const GROUPS_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups'
-const GROUPS_ARCHIVE_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups/archive'
+const COURSES_API = '/courses'
+const GROUPS_API = '/groups'
+const GROUPS_ARCHIVE_API = '/groups/archive'
 const STUDENT_MY_GROUPS_API = '/students/my/groups'
 const getViewportRowsLimit = () => {
   return 5
@@ -385,11 +384,6 @@ function GroupsPage({ language = 'uz' }) {
     loadAllData(tab)
   }
 
-  const handleGroupFilterSubmit = (e) => {
-    e.preventDefault()
-    loadAllData(activeTab)
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
@@ -628,122 +622,102 @@ function GroupsPage({ language = 'uz' }) {
   const totalStudentsCount = groups.reduce((sum, group) => sum + getGroupStudentsCount(group), 0)
 
   return (
-    <div className="students-page animate-fade-in max-lg:!gap-4">
-      
-      {/* HEADER SECTION */}
-      <div className="students-header max-lg:!flex max-lg:!flex-row max-lg:!items-start max-lg:!justify-between max-lg:!gap-4 max-md:!grid max-md:!grid-cols-1 max-md:!gap-3">
-        <div className="header-left">
-          <h1 className="page-title max-md:!text-3xl max-md:!leading-tight">{isStudentUser ? t('pages.myGroups') : t('pages.groups')}</h1>
-          
-          {/* TABS SELECTOR */}
-          {!isStudentUser && (
-          <div className="group-tabs-container">
-            <button 
-              className={`group-tab-btn ${activeTab === 'guruhlar' ? 'active' : ''}`}
-              onClick={() => handleTabChange('guruhlar')}
-            >
-              <Users size={16} />
-              {t('pages.groups')}
-            </button>
-            <button 
-              className={`group-tab-btn ${activeTab === 'arxiv' ? 'active' : ''}`}
-              onClick={() => handleTabChange('arxiv')}
-            >
-              <Clock size={16} />
-              {t('actions.archive')}
-            </button>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div className={styles.headerTop}>
+          <div>
+            <h1 className={styles.title}>{isStudentUser ? t('pages.myGroups') : t('pages.groups')}</h1>
+            <p className={styles.subtitle}>
+              {isStudentUser
+                ? 'Sizning guruhlaringiz va dars maʼlumotlarini shu yerda koʻring.'
+                : 'Guruhlar roʻyxati, ularning kurslari va dars vaqtlari bilan tanishing.'}
+            </p>
           </div>
+          {!isStudentUser && (
+            <button className={styles.addBtn} onClick={() => openModal()}>
+              <Plus size={18} />
+              {t('actions.addGroup')}
+            </button>
           )}
         </div>
-        
-        {!isStudentUser && (
-        <button className="add-student-btn max-lg:!w-auto max-lg:!min-w-fit max-lg:!rounded-xl max-md:!w-full max-md:!justify-center" onClick={() => openModal()}>
-          <Plus size={20} />
-          {t('actions.addGroup')}
-        </button>
-        )}
       </div>
 
-      {/* STAT CARDS SECTION */}
-      <div className="group-stats-grid max-lg:!grid-cols-3 max-lg:!gap-4 max-md:!grid-cols-1 max-md:!gap-3">
-        {/* Card 1: Jami Guruhlar */}
-        <div className="group-stat-card max-lg:!translate-y-0 max-lg:!rounded-2xl">
-          <div className="group-stat-header">
-            <div className="group-stat-icon-wrapper blue">
+      {!isStudentUser && (
+        <div className={styles.tabs}>
+          <button
+            className={`${styles.tab} ${activeTab === 'guruhlar' ? styles.activeTab : ''}`}
+            onClick={() => handleTabChange('guruhlar')}
+          >
+            <Users size={16} />
+            {t('pages.groups')}
+          </button>
+          <button
+            className={`${styles.tab} ${activeTab === 'arxiv' ? styles.activeTab : ''}`}
+            onClick={() => handleTabChange('arxiv')}
+          >
+            <Clock size={16} />
+            {t('actions.archive')}
+          </button>
+        </div>
+      )}
+
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <div className={`${styles.statIconWrapper} ${styles.statIconGroups}`}>
               <Users size={20} />
             </div>
-            <button className="group-stat-more">⋮</button>
+            <button className={styles.moreIcon} type="button">⋮</button>
           </div>
-          <p className="group-stat-label">{isStudentUser ? 'Mening guruhlarim' : 'Jami guruhlar'}</p>
-          <h2 className="group-stat-value">{totalGroupsCount}</h2>
+          <div className={styles.statInfo}>
+            <p className={styles.statLabel}>{isStudentUser ? 'Mening guruhlarim' : 'Jami guruhlar'}</p>
+            <h2 className={styles.statValue}>{totalGroupsCount}</h2>
+          </div>
         </div>
 
-        {/* Card 2: O'qituvchilar */}
-        <div className="group-stat-card max-lg:!translate-y-0 max-lg:!rounded-2xl">
-          <div className="group-stat-header">
-            <div className="group-stat-icon-wrapper green">
+        <div className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <div className={`${styles.statIconWrapper} ${styles.statIconTeachers}`}>
               <Users size={20} />
             </div>
-            <button className="group-stat-more">⋮</button>
+            <button className={styles.moreIcon} type="button">⋮</button>
           </div>
-          <p className="group-stat-label">O'qituvchilar</p>
-          <h2 className="group-stat-value">{totalTeachersCount}</h2>
+          <div className={styles.statInfo}>
+            <p className={styles.statLabel}>O'qituvchilar</p>
+            <h2 className={styles.statValue}>
+              {groupTeacherIds.length > 0 ? new Set(groupTeacherIds).size : totalTeachersCount}
+            </h2>
+          </div>
         </div>
 
-        {/* Card 3: O'quvchilar */}
-        <div className="group-stat-card max-lg:!translate-y-0 max-lg:!rounded-2xl">
-          <div className="group-stat-header">
-            <div className="group-stat-icon-wrapper purple">
+        <div className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <div className={`${styles.statIconWrapper} ${styles.statIconStudents}`}>
               <GraduationCap size={20} />
             </div>
-            <button className="group-stat-more">⋮</button>
+            <button className={styles.moreIcon} type="button">⋮</button>
           </div>
-          <div className="group-stat-students-footer">
-            <div>
-              <p className="group-stat-label">O'quvchilar</p>
-              <h2 className="group-stat-value">{totalStudentsCount}</h2>
-            </div>
-            {/* Overlay Avatars like in design */}
-            <div className="group-stat-avatars">
-              <span className="avatar-circle o">O</span>
-              <span className="avatar-circle m">M</span>
-              <span className="avatar-circle s">S</span>
-            </div>
+          <div className={styles.statInfo}>
+            <p className={styles.statLabel}>O'quvchilar</p>
+            <h2 className={styles.statValue}>{totalStudentsCount}</h2>
+          </div>
+          <div className={styles.studentAvatars}>
+            <span className={styles.smallAvatar}>O</span>
+            <span className={styles.smallAvatar}>M</span>
+            <span className={styles.smallAvatar}>S</span>
           </div>
         </div>
       </div>
 
-      {/* FILTERS & SEARCH CARD */}
-      <div className="students-card max-md:!rounded-2xl max-sm:!p-3">
-        <form className="card-controls max-lg:!flex max-lg:!flex-row max-md:!grid max-md:!grid-cols-1 max-md:!gap-3" onSubmit={handleGroupFilterSubmit}>
-          <div className="search-container max-md:!max-w-none">
-            <Search size={18} className="search-icon" />
-            <input 
-              type="text" 
-              placeholder={t('actions.search')} 
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              className="search-input"
-            />
-          </div>
-          <div className="action-buttons max-lg:!flex max-lg:!flex-row max-md:!grid max-md:!grid-cols-2 max-sm:!grid-cols-1 max-md:!gap-2">
-            <button type="submit" className="control-btn max-md:!justify-center" title="Yangilash">
-              <RefreshCw size={18} />
-              {t('actions.refresh')}
-            </button>
-            <button type="button" className="control-btn max-md:!justify-center">
-              <Filter size={18} />
-              {t('actions.filters')}
-            </button>
-          </div>
-        </form>
+      <div className={styles.tableCard}>
+        <div className={styles.tableWrapper}>
+          {loading && (
+            <div className={styles.loadingOverlay}>
+              <div className={styles.spinner} />
+            </div>
+          )}
 
-        {/* TABLE SECTION */}
-        <div className="table-wrapper max-md:!-mx-5 max-md:!overflow-x-auto max-md:!px-5">
-          <table className="students-table max-md:!table max-md:!min-w-[920px] max-md:!w-full max-sm:!min-w-[820px]">
+          <table className={styles.table}>
             <thead>
               <tr>
                 <th>{t('group.status')}</th>
@@ -754,29 +728,29 @@ function GroupsPage({ language = 'uz' }) {
                 <th>{t('group.room')}</th>
                 <th>{t('group.teacher')}</th>
                 <th>{t('group.students')}</th>
-                <th className="actions-col" style={{ textAlign: 'right' }}>
-                  <RefreshCw size={14} style={{ cursor: 'pointer' }} onClick={() => loadAllData()} />
+                <th style={{ textAlign: 'right' }}>
+                  <RefreshCw size={14} className={styles.refreshIcon} onClick={() => loadAllData(activeTab)} />
                 </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 [1, 2].map((item) => (
-                  <tr key={item} className="skeleton-row">
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '60px', borderRadius: '12px' }}></div></td>
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '80px' }}></div></td>
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '80px' }}></div></td>
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '65px' }}></div></td>
-                    <td className="skeleton-cell">
+                  <tr key={item} className={styles.skeletonRow}>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '60px', borderRadius: '12px' }} /></td>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '80px' }} /></td>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '80px' }} /></td>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '65px' }} /></td>
+                    <td className={styles.skeletonCell}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div className="skeleton-box" style={{ width: '60px' }}></div>
-                        <div className="skeleton-box" style={{ width: '120px' }}></div>
+                        <div className={styles.skeletonBox} style={{ width: '60px' }} />
+                        <div className={styles.skeletonBox} style={{ width: '120px' }} />
                       </div>
                     </td>
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '80px' }}></div></td>
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '100px' }}></div></td>
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '30px' }}></div></td>
-                    <td className="skeleton-cell"><div className="skeleton-box" style={{ width: '20px', marginLeft: 'auto' }}></div></td>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '80px' }} /></td>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '100px' }} /></td>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '30px' }} /></td>
+                    <td className={styles.skeletonCell}><div className={styles.skeletonBox} style={{ width: '20px', marginLeft: 'auto' }} /></td>
                   </tr>
                 ))
               ) : filteredGroups.length === 0 ? (
@@ -788,95 +762,118 @@ function GroupsPage({ language = 'uz' }) {
               ) : paginatedGroups.map(group => {
                 const isFaol = group.status === 'FAOL' || group.status === 'Aktiv' || !group.status
                 return (
-                  <tr key={group.id}>
-                    {/* Status Switch with label inside/beside */}
+                  <tr key={group.id} className={styles.tableRow} onClick={() => navigate(`/groups/${group.id}`)}>
                     <td>
-                      <div className="group-status-toggle-wrapper">
+                      <div className={styles.statusCell}>
                         {!isStudentUser && (
-                          <button 
-                            className={`group-status-switch ${isFaol ? 'faol' : 'arxiv'}`} 
-                            onClick={() => toggleGroupStatus(group.id)} 
-                            title={isFaol ? "Arxivlash" : 'Faollashtirish'}
+                          <button
+                            className={`${styles.groupStatusSwitch} ${isFaol ? styles.faol : styles.arxiv}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleGroupStatus(group.id)
+                            }}
+                            title={isFaol ? 'Arxivlash' : 'Faollashtirish'}
+                            type="button"
                           >
-                            <span className="switch-dot"></span>
+                            <span className={styles.switchDot} />
                           </button>
                         )}
-                        <span className={`status-pill-badge ${isFaol ? 'faol' : 'arxiv'}`}>
+                        <span className={`${styles.statusLabel} ${isFaol ? styles.faol : styles.arxiv}`}>
                           {isFaol ? 'FAOL' : 'ARXIV'}
                         </span>
                       </div>
                     </td>
-                    
-                    {/* Guruh nomi */}
                     <td>
                       <button
-                        onClick={() => navigate(`/groups/${group.id}`)}
-                        className="group-detail-link-btn"
+                        type="button"
+                        className={styles.groupNameBtn}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/groups/${group.id}`)
+                        }}
                       >
                         {group.name || group.group_name || 'Nomsiz Guruh'}
                       </button>
                     </td>
-                    
-                    {/* Kurs */}
                     <td>
-                      <span className="course-pill-badge">
-                        {getCourseName(group)}
-                      </span>
+                      <span className={styles.courseTag}>{getCourseName(group)}</span>
                     </td>
-                    
-                    {/* Max o'quvchi */}
                     <td>
-                      <span className="duration-text">
-                        {group.max_student ?? group.student_limit ?? '-'}
-                      </span>
+                      <span className={styles.duration}>{group.max_student ?? group.student_limit ?? '-'}</span>
                     </td>
-                    
-                    {/* Dars vaqti */}
                     <td>
-                      <div className="time-col-cell">
-                        <span className="time-text">{group.start_time || group.time || '09:00'}</span>
-                        <span className="days-text">{formatDays(group.week_day || group.days)}</span>
+                      <div className={styles.timeInfo}>
+                        <span className={styles.time}>{group.start_time || group.time || '09:00'}</span>
+                        <span className={styles.days}>{formatDays(group.week_day || group.days)}</span>
                       </div>
                     </td>
-                    
-                    {/* Xona */}
                     <td>
-                      <span className="room-text">
-                        {getRoomName(group)}
-                      </span>
+                      <span className={styles.room}>{getRoomName(group)}</span>
                     </td>
-                    
-                    {/* O'qituvchi */}
                     <td>
-                      <span className="teacher-text">
-                        {getTeacherName(group)}
-                      </span>
+                      <div className={styles.teachersList}>
+                        {Array.isArray(group.teachers)
+                          ? group.teachers.map((teacher, index) => (
+                              <span key={`${group.id}-teacher-${index}`} className={styles.teacherTag}>
+                                {teacher?.full_name || teacher?.name || teacher}
+                              </span>
+                            ))
+                          : <span className={styles.teacherTag}>{getTeacherName(group)}</span>
+                        }
+                      </div>
                     </td>
-                    
-                    {/* Talabalar */}
                     <td>
-                      <span className="students-count-bold">
-                        {getGroupStudentsCount(group)}
-                      </span>
+                      <span className={styles.studentCount}>{getGroupStudentsCount(group)}</span>
                     </td>
-                    
-                    {/* Amallar Üç-nokta menusi */}
                     <td style={{ textAlign: 'right' }}>
-                      <div className="actions-row" style={{ justifyContent: 'flex-end' }}>
+                      <div className={styles.actionsRow}>
                         {!isStudentUser && (
                           <>
-                            <button className="action-icon-btn" title="Talaba qo'shish" onClick={() => openStudentModal(group.id)} style={{ color: '#7c3aed' }}>
+                            <button
+                              type="button"
+                              className={styles.actionIconBtn}
+                              title="Talaba qo'shish"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openStudentModal(group.id)
+                              }}
+                              style={{ color: '#7c3aed' }}
+                            >
                               <UserPlus size={16} />
                             </button>
-                            <button className="action-icon-btn edit" title="Tahrirlash" onClick={() => openModal(group)}>
+                            <button
+                              type="button"
+                              className={styles.actionIconBtn}
+                              title="Tahrirlash"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openModal(group)
+                              }}
+                            >
                               <Pencil size={16} />
                             </button>
-                            <button className="action-icon-btn delete" title="O'chirish" onClick={() => deleteGroup(group.id)}>
+                            <button
+                              type="button"
+                              className={styles.actionIconBtn}
+                              title="O'chirish"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteGroup(group.id)
+                              }}
+                            >
                               <Trash2 size={16} />
                             </button>
                           </>
                         )}
-                        <button className="action-icon-btn" title="Batafsil" onClick={() => navigate(`/groups/${group.id}`)}>
+                        <button
+                          type="button"
+                          className={styles.actionIconBtn}
+                          title="Batafsil"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/groups/${group.id}`)
+                          }}
+                        >
                           <MoreVertical size={16} />
                         </button>
                       </div>
@@ -887,21 +884,20 @@ function GroupsPage({ language = 'uz' }) {
             </tbody>
           </table>
         </div>
+      </div>
 
-        {/* PAGINATION */}
-        <div className="pagination max-lg:!static max-lg:!m-0 max-lg:!rounded-none max-lg:!bg-transparent max-lg:!p-0 max-lg:!shadow-none max-sm:!gap-2">
-          <button className="pagination-arrow" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1 || loading}>
-            <ChevronLeft size={18} />
-            {t('actions.previous')}
-          </button>
-          <div className="page-numbers">
-            <button className="page-num active">{currentPage} / {totalPages}</button>
-          </div>
-          <button className="pagination-arrow" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages || loading}>
-            {t('actions.next')}
-            <ChevronRight size={18} />
-          </button>
+      <div className={styles.pagination}>
+        <button className={styles.paginationArrow} onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1 || loading}>
+          <ChevronLeft size={18} />
+          {t('actions.previous')}
+        </button>
+        <div className={styles.pageNumbers}>
+          <button className={`${styles.pageNum} ${styles.active}`}>{currentPage} / {totalPages}</button>
         </div>
+        <button className={styles.paginationArrow} onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages || loading}>
+          {t('actions.next')}
+          <ChevronRight size={18} />
+        </button>
       </div>
 
       {/* GURUH QO'SHISH SLIDE-OVER */}

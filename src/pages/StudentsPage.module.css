@@ -1,0 +1,195 @@
+.container {
+  padding: 24px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #6c35de;
+  color: #ffffff;
+  border: none;
+  gap: 8px;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(108, 53, 222, 0.15);
+  transition: all 0.18s ease;
+}
+
+.tableCard {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.02);
+  padding: 0 0 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.statusCell { display:flex; align-items:center; gap:6px }
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.statCard {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.statIconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.statInfo { display:flex; flex-direction:column; gap:4px }
+.statLabel { font-size:13px; color:#64748b; margin:0 }
+.statValue { font-size:20px; font-weight:700; color:#0f172a; margin:0 }
+
+.studentAvatars { display:flex; gap: -8px }
+.smallAvatar { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:700; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-left:-8px }
+
+.studentRow {
+  transition: background-color 0.15s ease;
+}
+.studentRow:hover {
+  background-color: #f8fafc;
+}
+
+.studentAvatar {
+  width:40px;
+  height:40px;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:#0f172a;
+  margin-right:12px;
+}
+
+.studentName { font-weight:600; color:#0f172a }
+
+.groupTag {
+  display:inline-block;
+  background:#eef2ff;
+  color:#3730a3;
+  padding:4px 8px;
+  border-radius:8px;
+  font-size:12px;
+  margin-right:6px;
+}
+
+.subgroupTag {
+  display:inline-block;
+  background:#f1f5f9;
+  color:#475569;
+  padding:4px 6px;
+  border-radius:8px;
+  font-size:12px;
+}
+
+.actionsRow { display:flex; gap:8px; justify-content:flex-end; }
+.actionIconBtn { width:36px; height:36px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; transition:background 0.12s ease }
+.actionIconBtn:hover { background:#f8fafc }
+.actionIconBtn.delete { color:#ef4444 }
+.actionIconBtn.edit { color:#0f172a }
+
+/* Detail modal */
+.detailModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,6,23,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+.detailModal {
+  background: #fff;
+  width: 820px;
+  max-width: calc(100% - 32px);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.12);
+}
+.detailTabs { display:flex; gap:8px; margin-bottom:12px }
+.detailTab { padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600; color:#475569 }
+.active { background:#f8fafc; color:#0f172a }
+.resourceList { display:flex; flex-direction:column; gap:8px }
+.resourceItem { display:flex; justify-content:space-between; align-items:center; padding:10px; border-radius:8px; background:#fbfbfc; }
+.resourceTitle { font-weight:600 }
+.gradeInput { width:72px; padding:6px 8px; border-radius:8px; border:1px solid #e6edf6 }
+.smallBtn { padding:6px 10px; border-radius:8px; background:#6c35de; color:#fff; border:none; cursor:pointer }
+.secondaryBtn { background:#f1f5f9; color:#0f172a }

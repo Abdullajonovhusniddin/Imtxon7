@@ -62,6 +62,17 @@ function App() {
             <DashboardPage />
           </ProtectedRoute>
         } />
+
+        <Route path="/dashboard/groups" element={
+          <ProtectedRoute>
+            <DashboardPage activePage="groups" />
+          </ProtectedRoute>
+        } />
+        <Route path="/dashboard/groups/:id" element={
+          <ProtectedRoute>
+            <DashboardPage activePage="groups" />
+          </ProtectedRoute>
+        } />
         
         <Route path="/teachers" element={
           <ProtectedRoute>

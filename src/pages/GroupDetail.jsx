@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { API_BASE, deleteJson, getJson, getUserRole, postJson } from '../api'
+import { createTranslator } from '../i18n'
 import {
   ArrowLeft,
   BarChart3,
@@ -19,9 +20,9 @@ import {
   XCircle
 } from 'lucide-react'
 
-const GROUP_STUDENTS_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups/one/students'
-const GROUP_ONE_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups/one'
-const GROUPS_API = 'https://najot-edu.softwareengineer.uz/api/v1/groups'
+const GROUP_STUDENTS_API = '/groups/one/students'
+const GROUP_ONE_API = '/groups/one'
+const GROUPS_API = '/groups'
 const LESSONS_API = '/lessons'
 const LESSONS_BY_GROUP_API = '/lessons/my/group'
 const ATTENDANCE_API = '/attendance'
@@ -55,21 +56,78 @@ const WEEK_DAY_LABELS = {
   Yakshanba: 'Ya'
 }
 
-const lessonTabs = [
-  { id: 'homework', label: 'Uyga vazifa' },
-  { id: 'videos', label: 'Videolar' },
-  { id: 'exams', label: 'Imtihonlar' },
-  { id: 'journal', label: 'Jurnal' }
-]
+const cn = (...classes) => classes.filter(Boolean).join(' ')
 
-export default function GroupDetail({ groupId }) {
+const tw = {
+  page: 'w-full max-w-screen-2xl mx-auto flex min-h-0 flex-1 flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8 text-slate-900 dark:text-slate-100',
+  header: 'flex flex-wrap items-center justify-between gap-4',
+  titleRow: 'flex min-w-0 items-center gap-3',
+  iconBtn: 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800',
+  title: 'truncate text-2xl font-bold leading-tight text-slate-950 dark:text-white',
+  statusActive: 'inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/20',
+  headerActions: 'flex items-center gap-2',
+  outlineBtn: 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+  primaryBtn: 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-emerald-500 bg-emerald-500 px-4 text-sm font-bold text-white shadow-sm shadow-emerald-500/20 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50',
+  purpleBtn: 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-violet-600 bg-violet-600 px-4 text-sm font-bold text-white shadow-sm shadow-violet-600/20 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50',
+  dangerIcon: 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 transition hover:bg-rose-100 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300',
+  mainTabs: 'flex w-full max-w-full flex-wrap gap-3 overflow-x-auto border-b border-slate-200 pb-1 dark:border-slate-800',
+  mainTab: 'relative whitespace-nowrap bg-transparent px-3 py-3 text-sm font-bold text-slate-500 transition hover:text-slate-900 dark:text-white dark:hover:text-slate-100',
+  mainTabActive: 'text-violet-600 after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-violet-600 dark:text-violet-300',
+  infoLayout: 'grid grid-cols-1 gap-5 lg:grid-cols-2',
+  panel: 'rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900',
+  panelPad: 'rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900',
+  panelTitle: 'flex items-center gap-2 rounded-t-lg bg-blue-500 px-5 py-4 text-base font-bold text-white',
+  panelTitlePlain: 'mb-4 flex items-center gap-2 text-lg font-black text-slate-950 dark:text-white',
+  mentorList: 'flex flex-wrap gap-4 p-5',
+  mentorCard: 'flex min-w-[190px] items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950',
+  avatar: 'grid h-12 w-12 shrink-0 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700 dark:bg-violet-500/20 dark:text-violet-200',
+  role: 'text-xs font-bold text-emerald-600 dark:text-emerald-300',
+  empty: 'rounded-lg border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400',
+  paramList: 'divide-y divide-slate-100 p-5 dark:divide-slate-800 [&>div]:flex [&>div]:items-center [&>div]:justify-between [&>div]:gap-4 [&>div]:py-3 [&_span]:text-sm [&_span]:font-semibold [&_span]:text-slate-500 [&_strong]:text-right [&_strong]:text-sm [&_strong]:font-black [&_strong]:text-slate-900 dark:[&_strong]:text-white',
+  schedulePanel: 'lg:col-span-2',
+  scheduleList: 'm-5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800',
+  scheduleRow: 'grid min-w-full grid-cols-[minmax(0,1.2fr)_minmax(0,.8fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,.8fr)] gap-4 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-slate-800 [&_span]:text-slate-600 dark:[&_span]:text-slate-300',
+  monthStrip: 'm-5 flex gap-2 overflow-x-auto pb-1',
+  monthBtn: 'grid h-14 min-w-14 place-items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-slate-600 transition hover:border-violet-200 hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-violet-500/10',
+  monthBtnActive: 'border-violet-500 bg-violet-600 text-white hover:bg-violet-600 dark:border-violet-400 dark:bg-violet-500',
+  monthBtnMuted: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
+  lessonsLayout: 'flex flex-col gap-5',
+  sectionHead: 'flex flex-wrap items-center justify-between gap-3',
+  subTabs: 'flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800',
+  subTab: 'rounded-md px-4 py-2 text-sm font-bold text-slate-500 transition hover:text-slate-950 dark:text-slate-400 dark:hover:text-white',
+  subTabActive: 'bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-white',
+  homeworkGrid: 'grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,.8fr)]',
+  breadcrumb: 'mb-4 flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400',
+  controlRow: 'mb-4 flex flex-wrap items-center gap-3 [&_select]:min-h-10 [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-200 [&_select]:bg-white [&_select]:px-3 [&_select]:text-sm [&_select]:font-semibold dark:[&_select]:border-slate-800 dark:[&_select]:bg-slate-950',
+  summary: 'mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 [&>div]:rounded-lg [&>div]:border [&>div]:border-slate-200 [&>div]:bg-slate-50 [&>div]:p-4 dark:[&>div]:border-slate-800 dark:[&>div]:bg-slate-950 [&_span]:text-xs [&_span]:font-bold [&_span]:uppercase [&_span]:text-slate-500 [&_strong]:mt-1 [&_strong]:block [&_strong]:text-2xl [&_strong]:font-black',
+  taskList: 'grid gap-3',
+  taskCard: 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950',
+  taskHead: 'mb-2 flex items-start justify-between gap-3 [&_h3]:text-base [&_h3]:font-black',
+  taskMeta: 'mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-500',
+  field: 'flex flex-col gap-2 text-sm font-bold text-slate-800 dark:text-slate-200 [&_b]:text-rose-500 [&_input]:min-h-10 [&_input]:rounded-lg [&_input]:border [&_input]:border-slate-200 [&_input]:bg-white [&_input]:px-3 [&_input]:text-sm [&_input]:font-semibold [&_input]:outline-none [&_input:focus]:border-emerald-500 [&_input:focus]:ring-4 [&_input:focus]:ring-emerald-500/10 dark:[&_input]:border-slate-800 dark:[&_input]:bg-slate-950 [&_select]:min-h-10 [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-200 [&_select]:bg-white [&_select]:px-3 dark:[&_select]:border-slate-800 dark:[&_select]:bg-slate-950 [&_textarea]:min-h-24 [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-slate-200 [&_textarea]:bg-white [&_textarea]:p-3 [&_textarea]:outline-none [&_textarea:focus]:border-emerald-500 [&_textarea:focus]:ring-4 [&_textarea:focus]:ring-emerald-500/10 dark:[&_textarea]:border-slate-800 dark:[&_textarea]:bg-slate-950 [&_small]:text-xs [&_small]:text-slate-500',
+  tableCard: 'overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900',
+  table: 'min-w-[980px] w-full border-collapse text-left text-sm [&_th]:border-b [&_th]:border-slate-200 [&_th]:px-5 [&_th]:py-4 [&_th]:font-black [&_th]:text-slate-500 dark:[&_th]:border-slate-800 [&_td]:border-b [&_td]:border-slate-100 [&_td]:px-5 [&_td]:py-4 dark:[&_td]:border-slate-800 [&_tbody_tr:nth-child(even)_td]:bg-slate-50 dark:[&_tbody_tr:nth-child(even)_td]:bg-slate-950/60',
+  linkCell: 'inline-flex items-center gap-2 border-0 bg-transparent p-0 text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-300',
+  statusSoft: 'inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+  statusNeutral: 'inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+}
+
+export default function GroupDetail({ groupId, language = 'uz' }) {
   const navigate = useNavigate()
+  const t = createTranslator(language)
+  const lessonTabs = [
+    { id: 'homework', label: t('pages.homework') },
+    { id: 'videos', label: t('pages.videos') },
+    { id: 'exams', label: t('pages.exams') },
+    { id: 'journal', label: t('pages.journal') }
+  ]
   const [group, setGroup] = useState(null)
   const [students, setStudents] = useState([])
   const [schedules, setSchedules] = useState([])
   const [allLessons, setAllLessons] = useState([])
   const [attendanceRecords, setAttendanceRecords] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchParams] = useSearchParams()
   const [savingLesson, setSavingLesson] = useState(false)
   const [lessonsLoaded, setLessonsLoaded] = useState(false)
   const [attendanceLoaded, setAttendanceLoaded] = useState(false)
@@ -94,7 +152,7 @@ export default function GroupDetail({ groupId }) {
   const [homeworkResults, setHomeworkResults] = useState([])
   const [selectedHomeworkId, setSelectedHomeworkId] = useState('')
   const [selectedResult, setSelectedResult] = useState(null)
-  const [homeworkStatus, setHomeworkStatus] = useState('PENDING')
+  const [homeworkStatus, setHomeworkStatus] = useState('')
   const [loadingHomework, setLoadingHomework] = useState(false)
   const [savingHomework, setSavingHomework] = useState(false)
   const [checkingHomework, setCheckingHomework] = useState(false)
@@ -229,11 +287,11 @@ export default function GroupDetail({ groupId }) {
 
   const getHomeworkStatusLabel = (status) => {
     const labels = {
-      ACCEPTED: 'Qabul qilingan',
-      REJECTED: 'Rad etilgan',
-      PENDING: 'Kutmoqda',
-      SUBMITTED: 'Topshirgan',
-      NOT_SUBMITTED: 'Topshirmagan'
+      ACCEPTED: t('homework.accepted'),
+      REJECTED: t('homework.statusRejected'),
+      PENDING: t('homework.pending'),
+      SUBMITTED: t('homework.submitted'),
+      NOT_SUBMITTED: t('homework.notSubmitted')
     }
 
     return labels[normalizeResultStatus(status)] || status || '-'
@@ -332,7 +390,7 @@ export default function GroupDetail({ groupId }) {
     return course
   }
 
-  const getGroupName = () => group?.name || group?.group_name || 'Guruh'
+  const getGroupName = () => group?.name || group?.group_name || t('pages.groups')
 
   const getOpenedDate = (groupData) => {
     return formatDate(
@@ -683,6 +741,14 @@ export default function GroupDetail({ groupId }) {
       })
       setHomeworkForm({ title: '', description: '', lessonId: '', deadline: '' })
       await loadHomeworks(true)
+      try {
+        if (window && window.opener && !window.opener.closed) {
+          try { window.opener.location.reload() } catch (e) { }
+          try { window.close() } catch (e) { }
+        }
+      } catch (e) {
+        // ignore
+      }
     } catch (err) {
       console.error('Homework save error', err)
       alert(err.message || "Uy vazifa qo'shishda xatolik yuz berdi.")
@@ -736,6 +802,11 @@ export default function GroupDetail({ groupId }) {
   }
 
   useEffect(() => {
+    if (searchParams.get('newHomework') === '1') {
+      setMainTab('lessons')
+      setLessonTab('homework')
+    }
+
     const load = async () => {
       setLoading(true)
       setAllLessons([])
@@ -804,6 +875,11 @@ export default function GroupDetail({ groupId }) {
     }
   }
 
+  const openHomeworkInNewWindow = () => {
+    const url = `${window.location.pathname}?newHomework=1`
+    window.open(url, '_blank')
+  }
+
   const handleLessonTabChange = async (tab) => {
     setLessonTab(tab)
 
@@ -870,57 +946,57 @@ export default function GroupDetail({ groupId }) {
   const selectedGrade = Number(checkForm.grade || 0)
 
   return (
-    <div className="erp-group-page">
-      <header className="erp-group-header">
-        <div className="erp-title-row">
-          <button className="erp-icon-btn" onClick={() => navigate('/groups')} aria-label="Orqaga">
+    <div className={tw.page}>
+      <header className={tw.header}>
+        <div className={tw.titleRow}>
+          <button className={tw.iconBtn} onClick={() => navigate('/groups')} aria-label="Orqaga">
             <ArrowLeft size={22} />
           </button>
-          <h1>{getGroupName()}</h1>
-          <span className="erp-status active">{group.status || 'Aktiv'}</span>
+          <h1 className={tw.title}>{getGroupName()}</h1>
+          <span className={tw.statusActive}>{group.status || 'Aktiv'}</span>
         </div>
-        <div className="erp-header-actions">
-          <button className="erp-outline-btn">
+        <div className={tw.headerActions}>
+          <button className={tw.outlineBtn}>
             <BarChart3 size={18} />
             Statistika
           </button>
-          <button className="erp-danger-icon" title="Guruhni o'chirish" onClick={deleteGroup}>
+          <button className={tw.dangerIcon} title="Guruhni o'chirish" onClick={deleteGroup}>
             <Trash2 size={18} />
           </button>
         </div>
       </header>
 
-      <nav className="erp-main-tabs">
-        <button className={mainTab === 'info' ? 'active' : ''} onClick={() => handleMainTabChange('info')}>Ma'lumotlar</button>
-        <button className={mainTab === 'lessons' ? 'active' : ''} onClick={() => handleMainTabChange('lessons')}>Guruh darsliklari</button>
-        <button className={mainTab === 'attendance' ? 'active' : ''} onClick={() => handleMainTabChange('attendance')}>Akademik davomati</button>
+      <nav className={tw.mainTabs}>
+        <button className={cn(tw.mainTab, mainTab === 'info' && tw.mainTabActive)} onClick={() => handleMainTabChange('info')}>Ma'lumotlar</button>
+        <button className={cn(tw.mainTab, mainTab === 'lessons' && tw.mainTabActive)} onClick={() => handleMainTabChange('lessons')}>Guruh darsliklari</button>
+        <button className={cn(tw.mainTab, mainTab === 'attendance' && tw.mainTabActive)} onClick={() => handleMainTabChange('attendance')}>Akademik davomati</button>
       </nav>
 
       {mainTab === 'info' && (
-        <section className="erp-info-layout">
-          <article className="erp-panel">
-            <div className="erp-panel-title">Guruh mentorlari</div>
-            <div className="erp-mentor-list">
+        <section className={tw.infoLayout}>
+          <article className={tw.panel}>
+            <div className={tw.panelTitle}>Guruh mentorlari</div>
+            <div className={tw.mentorList}>
               {Array.isArray(group.teachers) && group.teachers.length > 0 ? group.teachers.map(teacher => {
                 const teacherName = teacher.name || teacher.full_name || "Noma'lum"
                 return (
-                  <div key={teacher.id || teacherName} className="erp-mentor-card">
-                    <div className="erp-avatar">{getInitials(teacherName)}</div>
+                  <div key={teacher.id || teacherName} className={tw.mentorCard}>
+                    <div className={tw.avatar}>{getInitials(teacherName)}</div>
                     <div>
-                      <div className="erp-role">Teacher</div>
+                      <div className={tw.role}>Teacher</div>
                       <strong>{teacherName}</strong>
                     </div>
                   </div>
                 )
               }) : (
-                <div className="erp-empty-inline">Mentorlar yo'q</div>
+                <div className={tw.empty}>Mentorlar yo'q</div>
               )}
             </div>
           </article>
 
-          <article className="erp-panel">
-            <div className="erp-panel-title">Parametrlar</div>
-            <div className="erp-param-list">
+          <article className={tw.panel}>
+            <div className={tw.panelTitle}>Parametrlar</div>
+            <div className={tw.paramList}>
               <div><span>Kurs:</span><strong>{getCourseName(group)}</strong></div>
               <div><span>O'rtacha yosh:</span><strong>{group.avg_age || '-'}</strong></div>
               <div><span>O'quvchilar sig'imi:</span><strong>{group.student_limit || '-'}</strong></div>
@@ -930,11 +1006,11 @@ export default function GroupDetail({ groupId }) {
             </div>
           </article>
 
-          <article className="erp-panel erp-schedule-panel">
-            <div className="erp-panel-title">Dars jadvali</div>
-            <div className="erp-schedule-list">
+          <article className={cn(tw.panel, tw.schedulePanel)}>
+            <div className={tw.panelTitle}>Dars jadvali</div>
+            <div className={tw.scheduleList}>
               {(schedules.length > 0 ? schedules : [{ id: 'fallback', teacher: 'Teacher', day: group.week_day || group.days, startTime: group.start_time || group.time, endTime: group.end_time, room: group.room_name || '-' }]).map(item => (
-                <div key={item.id} className="erp-schedule-row">
+                <div key={item.id} className={tw.scheduleRow}>
                   <strong>{item.teacher}</strong>
                   <span>{formatScheduleDay(item.day)}</span>
                   <span>{item.startTime || '-'} dan {item.endTime || '-'} gacha</span>
@@ -943,9 +1019,9 @@ export default function GroupDetail({ groupId }) {
                 </div>
               ))}
             </div>
-            <div className="erp-month-strip compact">
+            <div className={tw.monthStrip}>
               {lessonDays.map((day, index) => (
-                <button key={`${day.value}-${index}`} className={index === selectedMonth ? 'active' : day.completed ? 'muted' : ''} onClick={() => handleLessonDaySelect(day, index, true)}>
+                <button key={`${day.value}-${index}`} className={cn(tw.monthBtn, index === selectedMonth ? tw.monthBtnActive : day.completed && tw.monthBtnMuted)} onClick={() => handleLessonDaySelect(day, index, true)}>
                   <span>{day.month}</span>
                   <strong>{day.day}</strong>
                 </button>
@@ -956,30 +1032,36 @@ export default function GroupDetail({ groupId }) {
       )}
 
       {mainTab === 'lessons' && (
-        <section className="erp-lessons-layout">
-          <div className="erp-section-head">
-            <h2>Guruh darsliklari</h2>
-            <div className="erp-sub-tabs">
+        <section className={tw.lessonsLayout}>
+          <div className={tw.sectionHead}>
+            <h2 className="text-lg font-black text-slate-950 dark:text-white">Guruh darsliklari</h2>
+            <div className={tw.subTabs}>
               {lessonTabs.map(tab => (
-                <button key={tab.id} className={lessonTab === tab.id ? 'active' : ''} onClick={() => handleLessonTabChange(tab.id)}>
+                <button key={tab.id} className={cn(tw.subTab, lessonTab === tab.id && tw.subTabActive)} onClick={() => handleLessonTabChange(tab.id)}>
                   {tab.label}
                 </button>
               ))}
             </div>
             {lessonTab === 'videos' && canManageHomework && (
-              <button className="erp-primary-btn" onClick={openVideoModal}>
+              <button className={tw.primaryBtn} onClick={openVideoModal}>
                 <Upload size={18} />
                 Fayl yuklash
               </button>
             )}
-            {lessonTab === 'exams' && <button className="erp-primary-btn">Yangi imtihon</button>}
+            {lessonTab === 'homework' && canManageHomework && (
+              <button className={tw.primaryBtn} onClick={openHomeworkInNewWindow}>
+                <Plus size={18} />
+                Yangi uy vazifa (yangi oynada)
+              </button>
+            )}
+            {lessonTab === 'exams' && <button className={tw.primaryBtn}>Yangi imtihon</button>}
           </div>
 
           {lessonTab === 'homework' && (
-            <div className="erp-homework-grid">
-              <div className="erp-panel erp-homework-preview">
-                <div className="erp-breadcrumb">{getGroupName()} <span>/</span> Uyga vazifa</div>
-                <div className="erp-homework-actions">
+            <div className={tw.homeworkGrid}>
+              <div className={tw.panelPad}>
+                <div className={tw.breadcrumb}>{getGroupName()} <span>/</span> Uyga vazifa</div>
+                <div className={tw.controlRow}>
                   <select value={selectedHomeworkId} onChange={e => {
                     const nextHomeworkId = e.target.value
                     setSelectedHomeworkId(nextHomeworkId)
@@ -1003,33 +1085,33 @@ export default function GroupDetail({ groupId }) {
                     <option value="ACCEPTED">Qabul qilingan</option>
                     <option value="REJECTED">Rad etilgan</option>
                   </select>
-                  <button className="erp-outline-btn" onClick={() => loadHomeworkResults()}>
+                  <button className={tw.outlineBtn} onClick={() => loadHomeworkResults()}>
                     <Eye size={18} />
                     Natijalar
                   </button>
                 </div>
 
-                <div className="erp-homework-summary">
+                <div className={tw.summary}>
                   <div><span>Topshirgan</span><strong>{submittedCount}</strong></div>
                   <div><span>Topshirmagan</span><strong>{notSubmittedRows.length}</strong></div>
                   <div><span>Kutmoqda</span><strong>{pendingCount}</strong></div>
                 </div>
 
                 {loadingHomework ? (
-                  <div className="erp-empty-table">Uy vazifalar yuklanmoqda...</div>
+                  <div className={tw.empty}>Uy vazifalar yuklanmoqda...</div>
                 ) : homeworks.length > 0 ? (
-                  <div className="erp-homework-list">
+                  <div className={tw.taskList}>
                     {homeworks.map(item => (
-                      <article key={item.id || item.title} className="erp-task-card">
-                        <div className="erp-task-head">
+                      <article key={item.id || item.title} className={tw.taskCard}>
+                        <div className={tw.taskHead}>
                           <h3>{item.title}</h3>
-                          <span className="erp-status neutral">Lesson #{item.lessonId || '-'}</span>
+                          <span className={tw.statusNeutral}>Lesson #{item.lessonId || '-'}</span>
                         </div>
-                        <p>{item.description || "Tavsif yo'q"}</p>
-                        <div className="erp-task-meta">
+                        <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{item.description || "Tavsif yo'q"}</p>
+                        <div className={tw.taskMeta}>
                           <span>Muddat: {formatDate(item.deadline)}</span>
                           {item.fileUrl && (
-                            <a href={item.fileUrl} target="_blank" rel="noreferrer" className="erp-link-cell">
+                            <a href={item.fileUrl} target="_blank" rel="noreferrer" className={tw.linkCell}>
                               <Download size={18} />
                               Yuklab olish
                             </a>
@@ -1039,15 +1121,15 @@ export default function GroupDetail({ groupId }) {
                     ))}
                   </div>
                 ) : (
-                  <div className="erp-empty-table">Bu guruh uchun uy vazifa topilmadi.</div>
+                  <div className={tw.empty}>Bu guruh uchun uy vazifa topilmadi.</div>
                 )}
 
                 {ownHomework && (
-                  <div className="erp-own-homework">
+                  <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100">
                     <strong>Talaba uchun lesson bo'yicha vazifa</strong>
-                    <span>{ownHomework.title || ownHomework.name || 'Uyga vazifa'}</span>
+                    <span className="ml-2 font-semibold">{ownHomework.title || ownHomework.name || 'Uyga vazifa'}</span>
                     {(ownHomework.fileUrl || ownHomework.file_url || ownHomework.url) && (
-                      <a href={ownHomework.fileUrl || ownHomework.file_url || ownHomework.url} target="_blank" rel="noreferrer">
+                      <a className={tw.linkCell} href={ownHomework.fileUrl || ownHomework.file_url || ownHomework.url} target="_blank" rel="noreferrer">
                         Yuklab olish
                       </a>
                     )}
@@ -1056,13 +1138,13 @@ export default function GroupDetail({ groupId }) {
               </div>
 
               {canManageHomework && (
-                <form className="erp-panel erp-homework-form" onSubmit={handleHomeworkSubmit}>
-                  <div className="erp-panel-title"><Plus size={18} /> Yangi uy vazifa</div>
-                  <label className="erp-field">
+                <form className={cn(tw.panelPad, 'flex flex-col gap-4')} onSubmit={handleHomeworkSubmit}>
+                  <div className={tw.panelTitlePlain}><Plus size={18} /> Yangi uy vazifa</div>
+                  <label className={tw.field}>
                     <span><b>*</b> Nomi</span>
                     <input value={homeworkForm.title} onChange={e => setHomeworkForm(prev => ({ ...prev, title: e.target.value }))} placeholder="Masalan: React props mashqi" required />
                   </label>
-                  <label className="erp-field">
+                  <label className={tw.field}>
                     <span>Dars</span>
                     <select value={homeworkForm.lessonId} onChange={e => setHomeworkForm(prev => ({ ...prev, lessonId: e.target.value }))}>
                       <option value="">Darsni tanlang</option>
@@ -1071,22 +1153,22 @@ export default function GroupDetail({ groupId }) {
                       ))}
                     </select>
                   </label>
-                  <label className="erp-field">
+                  <label className={tw.field}>
                     <span>Muddat</span>
                     <input type="date" value={homeworkForm.deadline} onChange={e => setHomeworkForm(prev => ({ ...prev, deadline: e.target.value }))} />
                   </label>
-                  <label className="erp-field">
+                  <label className={tw.field}>
                     <span>Tavsif</span>
                     <textarea value={homeworkForm.description} onChange={e => setHomeworkForm(prev => ({ ...prev, description: e.target.value }))} placeholder="Vazifa matni..." />
                   </label>
-                  <button className="erp-primary-btn" type="submit" disabled={savingHomework || !homeworkForm.title.trim()}>
+                  <button className={tw.primaryBtn} type="submit" disabled={savingHomework || !homeworkForm.title.trim()}>
                     {savingHomework ? 'Saqlanmoqda...' : "Qo'shish"}
                   </button>
                 </form>
               )}
 
-              <div className="erp-table-card">
-                <table className="erp-table">
+              <div className={cn(tw.tableCard, 'xl:col-span-2')}>
+                <table className={tw.table}>
                   <thead>
                     <tr>
                       <th>#</th>
@@ -1102,11 +1184,11 @@ export default function GroupDetail({ groupId }) {
                       <tr key={row.id || index}>
                         <td>{index + 1}</td>
                         <td>{row.studentName}</td>
-                        <td><span className={`erp-status ${normalizeResultStatus(row.status) === 'NOT_SUBMITTED' || normalizeResultStatus(row.status) === 'REJECTED' ? 'neutral' : 'soft'}`}>{getHomeworkStatusLabel(row.status)}</span></td>
+                        <td><span className={normalizeResultStatus(row.status) === 'NOT_SUBMITTED' || normalizeResultStatus(row.status) === 'REJECTED' ? tw.statusNeutral : tw.statusSoft}>{getHomeworkStatusLabel(row.status)}</span></td>
                         <td>{row.grade}</td>
                         <td>{formatDate(row.submittedAt)}</td>
                         <td>
-                          <button className="erp-link-cell" onClick={() => {
+                          <button className={tw.linkCell} onClick={() => {
                             setCheckForm(prev => ({ ...prev, studentId: row.studentId || '' }))
                             if (normalizeResultStatus(row.status) === 'NOT_SUBMITTED') {
                               setSelectedResult(row)
@@ -1130,59 +1212,59 @@ export default function GroupDetail({ groupId }) {
               </div>
 
               {canManageHomework && selectedResult && (
-                <form className="erp-homework-check-page" onSubmit={handleHomeworkCheck}>
-                  <div className="erp-check-breadcrumb">
-                    <button type="button" onClick={() => setSelectedResult(null)}>Kutayotganlar</button>
+                <form className="grid gap-5 xl:col-span-2" onSubmit={handleHomeworkCheck}>
+                  <div className={tw.breadcrumb}>
+                    <button className={tw.linkCell} type="button" onClick={() => setSelectedResult(null)}>Kutayotganlar</button>
                     <span>/</span>
                     <strong>Uyga vazifa</strong>
                   </div>
 
-                  <section className="erp-check-card">
-                    <h2>Uy vazifasi</h2>
-                    <div className="erp-check-note">
-                      <span>Izoh:</span>
-                      <p>{selectedHomework?.description || "Izoh yo'q"}</p>
+                  <section className={tw.panelPad}>
+                    <h2 className={tw.panelTitlePlain}>Uy vazifasi</h2>
+                    <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-950">
+                      <span className="text-sm font-black text-slate-500">Izoh:</span>
+                      <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{selectedHomework?.description || "Izoh yo'q"}</p>
                     </div>
                   </section>
 
-                  <section className="erp-check-card erp-student-work-card">
-                    <h2>{selectedResult.studentName || "O'quvchi"}</h2>
-                    <div className="erp-student-work-meta">
+                  <section className={tw.panelPad}>
+                    <h2 className={tw.panelTitlePlain}>{selectedResult.studentName || "O'quvchi"}</h2>
+                    <div className={tw.summary}>
                       <div><span>Vaqti:</span><strong>{formatDate(selectedResult.submittedAt)}</strong></div>
                       <div><span>Fayllar soni:</span><strong>{selectedResultFiles.length || (selectedResult.fileUrl ? 1 : 0)}</strong></div>
-                      <div><span>Status:</span><strong className="erp-waiting-badge">{getHomeworkStatusLabel(selectedResult.status)}</strong></div>
+                      <div><span>Status:</span><strong>{getHomeworkStatusLabel(selectedResult.status)}</strong></div>
                     </div>
-                    <div className="erp-submitted-files">
-                      <strong>Fayl: {selectedResultFiles.length || (selectedResult.fileUrl ? 1 : 0)}</strong>
-                      <div className="erp-file-preview-row">
+                    <div className="grid gap-3">
+                      <strong className="text-sm font-black">Fayl: {selectedResultFiles.length || (selectedResult.fileUrl ? 1 : 0)}</strong>
+                      <div className="flex flex-wrap gap-3">
                         {(selectedResultFiles.length > 0 ? selectedResultFiles : [selectedResult.fileUrl].filter(Boolean)).map((file, index) => (
-                          <a key={`${file}-${index}`} href={file} target="_blank" rel="noreferrer" className="erp-file-thumb">
+                          <a key={`${file}-${index}`} href={file} target="_blank" rel="noreferrer" className={cn(tw.outlineBtn, 'min-w-28')}>
                             <Download size={18} />
                             Fayl {index + 1}
                           </a>
                         ))}
                       </div>
-                      <div className="erp-submission-comment">
-                        <span>Uyga vazifa izohi:</span>
-                        <p>{selectedResult.homeworkComment || selectedResult.comment || "Izoh yo'q"}</p>
+                      <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-950">
+                        <span className="text-sm font-black text-slate-500">Uyga vazifa izohi:</span>
+                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">{selectedResult.homeworkComment || selectedResult.comment || "Izoh yo'q"}</p>
                       </div>
                     </div>
                   </section>
 
-                  <section className="erp-check-card erp-grade-card">
-                    <div className="erp-grade-info">
+                  <section className={cn(tw.panelPad, 'grid gap-4')}>
+                    <div className="flex items-start gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-800 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
                       <Info size={24} />
                       <span>60-100 oralig'ida ball qo'yilgan vazifa 'Qabul qilingan', 0-59 oralig'ida ball qo'yilgan vazifa 'Qaytarilgan' hisoblanadi.</span>
                     </div>
-                    <label className="erp-field">
+                    <label className={tw.field}>
                       <span>Ball</span>
-                      <div className="erp-grade-row">
+                      <div className="grid grid-cols-[1fr_96px] gap-3">
                         <input type="range" min="0" max="100" value={selectedGrade} onChange={e => handleGradeChange(e.target.value)} />
                         <input type="number" min="0" max="100" value={checkForm.grade} onChange={e => handleGradeChange(e.target.value)} placeholder="60" />
                       </div>
                       <small>O'tish bali</small>
                     </label>
-                    <label className="erp-field">
+                    <label className={tw.field}>
                       <span>Status</span>
                       <select value={checkForm.status} onChange={e => setCheckForm(prev => ({ ...prev, status: e.target.value }))}>
                         <option value="ACCEPTED">Qabul qilingan</option>
@@ -1190,13 +1272,13 @@ export default function GroupDetail({ groupId }) {
                         <option value="PENDING">Kutmoqda</option>
                       </select>
                     </label>
-                    <label className="erp-field">
+                    <label className={tw.field}>
                       <span>Izoh</span>
                       <textarea value={checkForm.comment} onChange={e => setCheckForm(prev => ({ ...prev, comment: e.target.value }))} placeholder="Izohingiz" />
                     </label>
-                    <div className="erp-check-actions">
-                      <button type="button" className="erp-outline-btn" onClick={() => setSelectedResult(null)}>Bekor qilish</button>
-                      <button className="erp-primary-btn" type="submit" disabled={checkingHomework || !selectedHomeworkId || !checkForm.studentId}>
+                    <div className="flex flex-wrap justify-end gap-3">
+                      <button type="button" className={tw.outlineBtn} onClick={() => setSelectedResult(null)}>Bekor qilish</button>
+                      <button className={tw.primaryBtn} type="submit" disabled={checkingHomework || !selectedHomeworkId || !checkForm.studentId}>
                         {checkingHomework ? 'Yuborilmoqda...' : 'Yuborish'}
                       </button>
                     </div>
@@ -1207,8 +1289,8 @@ export default function GroupDetail({ groupId }) {
           )}
 
           {lessonTab === 'videos' && (
-            <div className="erp-table-card">
-              <table className="erp-table">
+            <div className={tw.tableCard}>
+              <table className={tw.table}>
                 <thead>
                   <tr>
                     <th>#</th>
@@ -1230,24 +1312,24 @@ export default function GroupDetail({ groupId }) {
                       <td>{index + 1}</td>
                       <td>
                         {row.url ? (
-                          <div className="erp-file-actions">
+                          <div className="flex flex-wrap items-center gap-3">
                             {isVideoFile(row) && (
-                              <button className="erp-link-cell" type="button" onClick={() => setPreviewVideo(row)}>
+                              <button className={tw.linkCell} type="button" onClick={() => setPreviewVideo(row)}>
                                 <PlayCircle size={18} />
                                 Ko'rish
                               </button>
                             )}
-                            <a className="erp-link-cell" href={row.url} target="_blank" rel="noreferrer">
+                            <a className={tw.linkCell} href={row.url} target="_blank" rel="noreferrer">
                               <Download size={18} />
                               {row.name || 'Fayl'}
                             </a>
                           </div>
                         ) : (
-                          <span className="erp-link-cell"><PlayCircle size={18} /> {row.name || row.topic || 'Fayl'}</span>
+                          <span className={tw.linkCell}><PlayCircle size={18} /> {row.name || row.topic || 'Fayl'}</span>
                         )}
                       </td>
                       <td>{row.lessonName || row.topic || '-'}</td>
-                      <td><span className="erp-status neutral">{row.type || '-'}</span></td>
+                      <td><span className={tw.statusNeutral}>{row.type || '-'}</span></td>
                       <td>{formatFileSize(row.size)}</td>
                       <td>{formatDate(row.createdAt || row.date)}</td>
                       <td><MoreVertical size={18} /></td>
@@ -1263,8 +1345,8 @@ export default function GroupDetail({ groupId }) {
           )}
 
           {lessonTab === 'exams' && (
-            <div className="erp-table-card">
-              <table className="erp-table">
+            <div className={tw.tableCard}>
+              <table className={tw.table}>
                 <thead>
                   <tr>
                     <th>#</th>
@@ -1282,10 +1364,10 @@ export default function GroupDetail({ groupId }) {
                   {examRows.map((row, index) => (
                     <tr key={row.id || index}>
                       <td>{row.id || index + 1}</td>
-                      <td><button className="erp-topic-link">{row.topic || 'Examination'}</button></td>
+                      <td><button className={tw.linkCell}>{row.topic || 'Examination'}</button></td>
                       <td>{row.attendanceCount || students.length || 0}</td>
                       <td>0</td>
-                      <td><span className={`erp-status ${row.status === 'Faol' ? 'soft' : 'neutral'}`}>{row.status || 'Tugagan'}</span></td>
+                      <td><span className={row.status === 'Faol' ? tw.statusSoft : tw.statusNeutral}>{row.status || 'Tugagan'}</span></td>
                       <td>{formatDate(row.date)}<br />09:30</td>
                       <td>{formatDate(row.date)}<br />09:28</td>
                       <td>{row.status === 'Faol' ? '-' : formatDate(row.date)}</td>
@@ -1298,24 +1380,24 @@ export default function GroupDetail({ groupId }) {
           )}
 
           {lessonTab === 'journal' && (
-            <div className="erp-journal">
-              <div className="erp-month-strip">
+            <div className="grid gap-5">
+              <div className={tw.monthStrip}>
                 {lessonDays.map((day, index) => (
-                  <button key={`${day.value}-${index}`} className={index === selectedMonth ? 'active' : day.completed ? 'muted' : ''} onClick={() => handleLessonDaySelect(day, index)}>
+                  <button key={`${day.value}-${index}`} className={cn(tw.monthBtn, index === selectedMonth ? tw.monthBtnActive : day.completed && tw.monthBtnMuted)} onClick={() => handleLessonDaySelect(day, index)}>
                     <span>{day.month}</span>
                     <strong>{day.day}</strong>
                   </button>
                 ))}
               </div>
 
-              <form className="erp-panel erp-attendance-form" onSubmit={handleLessonSubmit}>
-                <div className="erp-panel-title">Yo'qlama va mavzu kiritish</div>
-                <label className="erp-field">
+              <form className={cn(tw.panelPad, 'grid gap-4')} onSubmit={handleLessonSubmit}>
+                <div className={tw.panelTitlePlain}>Yo'qlama va mavzu kiritish</div>
+                <label className={tw.field}>
                   <span><b>*</b> Sana</span>
                   <input type="date" value={lessonForm.date} onChange={e => setLessonForm(prev => ({ ...prev, date: e.target.value }))} required />
                 </label>
-                <div className="erp-radio-row">
-                  <label>
+                <div className="flex flex-wrap gap-4 text-sm font-bold text-slate-700 dark:text-slate-200">
+                  <label className="inline-flex items-center gap-2">
                     <input
                       type="radio"
                       name="lesson-source"
@@ -1324,7 +1406,7 @@ export default function GroupDetail({ groupId }) {
                     />
                     O'quv reja bo'yicha
                   </label>
-                  <label>
+                  <label className="inline-flex items-center gap-2">
                     <input
                       type="radio"
                       name="lesson-source"
@@ -1336,7 +1418,7 @@ export default function GroupDetail({ groupId }) {
                 </div>
 
                 {lessonSource === 'plan' ? (
-                  <label className="erp-field">
+                  <label className={tw.field}>
                     <span><b>*</b> Mavzu</span>
                     <select value={selectedPlanId} onChange={e => setSelectedPlanId(e.target.value)} required>
                       <option value="">O'quv reja API ulanmagan</option>
@@ -1347,36 +1429,36 @@ export default function GroupDetail({ groupId }) {
                     <small>Backenddan o'quv reja endpointini bersangiz, shu select real mavzular bilan to'ladi.</small>
                   </label>
                 ) : (
-                  <label className="erp-field">
+                  <label className={tw.field}>
                     <span><b>*</b> Mavzu</span>
                     <input value={lessonForm.topic} onChange={e => setLessonForm(prev => ({ ...prev, topic: e.target.value }))} placeholder="Mavzuni kiriting..." required />
                   </label>
                 )}
 
-                <label className="erp-field">
+                <label className={tw.field}>
                   <span>Tavsif (ixtiyoriy)</span>
                   <textarea value={lessonForm.description} onChange={e => setLessonForm(prev => ({ ...prev, description: e.target.value }))} placeholder="Dars haqida qo'shimcha ma'lumot..." />
                 </label>
 
-                <div className={`erp-attendance-note ${attendanceWindow.open ? 'open' : 'closed'}`}>
+                <div className={cn('rounded-lg border p-3 text-sm font-bold', attendanceWindow.open ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200')}>
                   {attendanceWindow.message}
                 </div>
 
-                <div className="erp-attendance-table">
-                  <div className="erp-attendance-head">
+                <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
+                  <div className="grid grid-cols-[56px_1fr_260px] gap-3 bg-slate-50 px-4 py-3 text-xs font-black uppercase text-slate-500 dark:bg-slate-950">
                     <span>#</span>
                     <span>O'quvchi ismi</span>
                     <span>Davomat</span>
                   </div>
                   {students.length > 0 ? students.map((student, index) => (
-                    <div key={student.id || student.name} className="erp-attendance-row">
+                    <div key={student.id || student.name} className="grid grid-cols-[56px_1fr_260px] items-center gap-3 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
                       <span>{index + 1}</span>
-                      <span className="erp-student-cell"><span className="erp-mini-avatar">{student.initials}</span>{student.name}</span>
-                      <div className="erp-attendance-actions">
+                      <span className="inline-flex items-center gap-2 font-bold"><span className={cn(tw.avatar, 'h-8 w-8 text-xs')}>{student.initials}</span>{student.name}</span>
+                      <div className="flex gap-2">
                         <button
                           type="button"
                           disabled={!canEditAttendance}
-                          className={`erp-attendance-choice ${lessonForm.attendance[student.id] === true ? 'present' : ''}`}
+                          className={cn('min-h-9 rounded-lg border px-3 text-sm font-black disabled:opacity-50', lessonForm.attendance[student.id] === true ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300')}
                           onClick={() => toggleAttendance(student.id, true)}
                         >
                           Keldi
@@ -1384,7 +1466,7 @@ export default function GroupDetail({ groupId }) {
                         <button
                           type="button"
                           disabled={!canEditAttendance}
-                          className={`erp-attendance-choice ${lessonForm.attendance[student.id] === false ? 'absent' : ''}`}
+                          className={cn('min-h-9 rounded-lg border px-3 text-sm font-black disabled:opacity-50', lessonForm.attendance[student.id] === false ? 'border-rose-500 bg-rose-500 text-white' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300')}
                           onClick={() => toggleAttendance(student.id, false)}
                         >
                           Kelmadi
@@ -1392,16 +1474,16 @@ export default function GroupDetail({ groupId }) {
                       </div>
                     </div>
                   )) : (
-                    <div className="erp-empty-table">Bu guruhda o'quvchilar topilmadi.</div>
+                    <div className={tw.empty}>Bu guruhda o'quvchilar topilmadi.</div>
                   )}
                 </div>
 
-                <div className="erp-form-actions">
-                  <button type="button" className="erp-outline-btn" onClick={() => {
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button type="button" className={tw.outlineBtn} onClick={() => {
                     setLessonForm(prev => ({ ...prev, topic: '', description: '', attendance: {} }))
                     setSelectedPlanId('')
                   }}>Bekor qilish</button>
-                  <button type="submit" className="erp-primary-btn purple" disabled={savingLesson || !canEditAttendance}>
+                  <button type="submit" className={tw.purpleBtn} disabled={savingLesson || !canEditAttendance}>
                     {savingLesson ? 'Saqlanmoqda...' : 'Saqlash'}
                   </button>
                 </div>
@@ -1412,8 +1494,8 @@ export default function GroupDetail({ groupId }) {
       )}
 
       {mainTab === 'attendance' && (
-        <section className="erp-attendance-months">
-          <div className="erp-attendance-summary">
+        <section className="grid gap-5">
+          <div className={tw.summary}>
             <div>
               <span>Umumiy yozuvlar</span>
               <strong>{attendanceRecords.length}</strong>
@@ -1429,11 +1511,13 @@ export default function GroupDetail({ groupId }) {
           </div>
 
           {[1, 2, 3, 4, 5].map((month, monthIndex) => (
-            <div key={month} className="erp-month-block">
-              <h2>{month}-o'quv oyi {monthIndex === 0 && <span>Joriy oy</span>}</h2>
-              <div className="erp-month-strip wide">
+            <div key={month} className={tw.panelPad}>
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-slate-950 dark:text-white">
+                {month}-o'quv oyi {monthIndex === 0 && <span className={tw.statusSoft}>Joriy oy</span>}
+              </h2>
+              <div className={cn(tw.monthStrip, '!m-0')}>
                 {lessonDays.map((day, index) => (
-                  <button key={`${month}-${day.value}-${index}`} className={monthIndex === 0 && index < 7 ? 'muted' : ''}>
+                  <button key={`${month}-${day.value}-${index}`} className={cn(tw.monthBtn, monthIndex === 0 && index < 7 && tw.monthBtnMuted)}>
                     <span>{monthIndex === 0 ? 'Jan' : day.month}</span>
                     <strong>{monthIndex === 0 ? [2, 5, 7, 9, 12, 14, 16, 19, 21, 23, 26, 28, 30][index] : day.day}</strong>
                   </button>
@@ -1445,34 +1529,34 @@ export default function GroupDetail({ groupId }) {
       )}
 
       {previewVideo && (
-        <div className="erp-modal-overlay" onClick={() => setPreviewVideo(null)}>
-          <div className="erp-video-modal erp-video-preview-modal" onClick={e => e.stopPropagation()}>
-            <div className="erp-video-modal-head">
-              <h2>{previewVideo.name || 'Video'}</h2>
-              <button onClick={() => setPreviewVideo(null)} aria-label="Yopish">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" onClick={() => setPreviewVideo(null)}>
+          <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-slate-950 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4 bg-slate-900 px-5 py-4 text-white">
+              <h2 className="truncate text-base font-bold">{previewVideo.name || 'Video'}</h2>
+              <button className={cn(tw.iconBtn, '!border-slate-700 !bg-slate-800 !text-white hover:!bg-slate-700')} onClick={() => setPreviewVideo(null)} aria-label="Yopish">
                 <X size={22} />
               </button>
             </div>
-            <div className="erp-video-preview-body">
-              <video src={previewVideo.url} controls autoPlay />
+            <div className="bg-black">
+              <video className="max-h-[72vh] w-full" src={previewVideo.url} controls autoPlay />
             </div>
           </div>
         </div>
       )}
 
       {isVideoModalOpen && (
-        <div className="erp-modal-overlay" onClick={closeVideoModal}>
-          <div className="erp-video-modal" onClick={e => e.stopPropagation()}>
-            <div className="erp-video-modal-head">
-              <h2>Fayl yuklash</h2>
-              <button onClick={closeVideoModal} aria-label="Yopish">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" onClick={closeVideoModal}>
+          <div className="w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-slate-900" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">Fayl yuklash</h2>
+              <button className={tw.iconBtn} onClick={closeVideoModal} aria-label="Yopish">
                 <X size={22} />
               </button>
             </div>
 
-            <form onSubmit={handleVideoUpload}>
+            <form className="grid gap-5 p-6" onSubmit={handleVideoUpload}>
               <label
-                className="erp-video-dropzone"
+                className="grid cursor-pointer place-items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-emerald-400 hover:bg-emerald-50 dark:border-slate-700 dark:bg-slate-950 dark:hover:bg-emerald-500/10"
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => {
                   e.preventDefault()
@@ -1480,35 +1564,37 @@ export default function GroupDetail({ groupId }) {
                 }}
               >
                 <input
+                  className="hidden"
                   type="file"
                   accept="*/*"
                   onChange={e => handleVideoFile(e.target.files?.[0])}
                 />
-                <span className="erp-upload-box">
+                <span className="grid h-16 w-16 place-items-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
                   <Upload size={38} />
                 </span>
-                <strong>Faylni yuklash uchun ushbu hudud ustiga bosing yoki faylni shu yerga olib keling</strong>
-                <small>Darslik, rasm, video yoki qo'shimcha material fayllarini yuklash mumkin</small>
+                <strong className="max-w-xl text-sm font-black text-slate-900 dark:text-white">Faylni yuklash uchun ushbu hudud ustiga bosing yoki faylni shu yerga olib keling</strong>
+                <small className="text-sm font-semibold text-slate-500">Darslik, rasm, video yoki qo'shimcha material fayllarini yuklash mumkin</small>
               </label>
 
               {videoFile && (
-                <div className="erp-video-file-table">
-                  <div className="erp-video-file-head">
+                <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                  <div className="grid min-w-[680px] grid-cols-[1.3fr_1fr_1fr_80px] gap-3 bg-slate-50 px-4 py-3 text-xs font-black uppercase text-slate-500 dark:bg-slate-950">
                     <span>File name</span>
                     <span><b>*</b> Dars</span>
                     <span><b>*</b> Fayl nomi</span>
                     <span>Actions</span>
                   </div>
-                  <div className="erp-video-file-row">
-                    <span>{videoFile.name}</span>
-                    <select value={videoLessonId} onChange={e => setVideoLessonId(e.target.value)} required>
+                  <div className="grid min-w-[680px] grid-cols-[1.3fr_1fr_1fr_80px] items-center gap-3 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+                    <span className="truncate text-sm font-bold">{videoFile.name}</span>
+                    <select className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold dark:border-slate-800 dark:bg-slate-950" value={videoLessonId} onChange={e => setVideoLessonId(e.target.value)} required>
                       <option value="">Darsni tanlang</option>
                       {allLessons.map((lesson, index) => (
                         <option key={lesson.id || index} value={lesson.id || index}>{lesson.topic || `Dars ${index + 1}`}</option>
                       ))}
                     </select>
-                    <input value={videoName} onChange={e => setVideoName(e.target.value)} required />
+                    <input className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-800 dark:bg-slate-950" value={videoName} onChange={e => setVideoName(e.target.value)} required />
                     <button
+                      className={tw.dangerIcon}
                       type="button"
                       onClick={() => {
                         setVideoFile(null)
@@ -1523,10 +1609,10 @@ export default function GroupDetail({ groupId }) {
                 </div>
               )}
 
-              <div className="erp-video-modal-actions">
-                <button type="button" onClick={closeVideoModal}>Bekor qilish</button>
+              <div className="flex flex-wrap justify-end gap-3">
+                <button className={tw.outlineBtn} type="button" onClick={closeVideoModal}>Bekor qilish</button>
                 {videoFile && (
-                  <button type="submit" disabled={uploadingFile || !videoLessonId || !videoName.trim()}>
+                  <button className={tw.primaryBtn} type="submit" disabled={uploadingFile || !videoLessonId || !videoName.trim()}>
                     {uploadingFile ? 'Yuklanmoqda...' : 'Faylni yuklash'}
                   </button>
                 )}

@@ -60,8 +60,8 @@ const subMenuItems = [
   { id: 'tekshiruv', label: 'Tekshiruv', icon: CheckCircle },
 ]
 
-const TEACHERS_API = 'https://najot-edu.softwareengineer.uz/api/v1/teachers'
-const COURSES_API = 'https://najot-edu.softwareengineer.uz/api/v1/courses'
+const TEACHERS_API = '/teachers'
+const COURSES_API = '/courses'
 const ROOMS_API = '/rooms'
 const ROOM_ONE_API = '/rooms/one'
 const ROOMS_ARCHIVE_API = '/rooms/arxive'

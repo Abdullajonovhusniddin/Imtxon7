@@ -1,4 +1,4 @@
-export const uiText = {
+﻿export const uiText = {
   uz: {
     actions: {
       add: "Qo'shish",
@@ -317,3 +317,4 @@ export const createTranslator = (language = 'uz') => {
     return value || fallback
   }
 }
+
