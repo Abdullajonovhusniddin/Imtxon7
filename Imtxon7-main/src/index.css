@@ -5904,3 +5904,145 @@ button, a, select, input[type="checkbox"], input[type="submit"], .db-nav-item, .
 .erp-teacher-shell.dark .db-welcome-title {
   color: #86efac;
 }
+
+/* ===================== DARK MODE GLOBAL OVERRIDES ===================== */
+
+/* Student modal content */
+.db-wrapper.dark .student-modal-content {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Search box in topbar */
+.db-wrapper.dark .db-search-box {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+.db-wrapper.dark .db-search-input {
+  color: var(--text) !important;
+}
+
+/* Control buttons (filter, refresh) */
+.db-wrapper.dark .control-btn {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Pagination arrows */
+.db-wrapper.dark .pagination-arrow {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.db-wrapper.dark .page-num {
+  color: var(--text) !important;
+}
+.db-wrapper.dark .page-num.active {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+}
+
+/* Form inputs inside modal */
+.db-wrapper.dark .s-form-input {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+.db-wrapper.dark .s-form-input:focus {
+  border-color: var(--primary) !important;
+}
+
+/* Modal title and labels */
+.db-wrapper.dark .s-modal-title {
+  color: var(--text) !important;
+}
+.db-wrapper.dark .s-form-label {
+  color: var(--sub) !important;
+}
+.db-wrapper.dark .s-modal-close {
+  color: var(--sub) !important;
+}
+.db-wrapper.dark .s-modal-close:hover {
+  color: var(--text) !important;
+}
+
+/* Cancel button */
+.db-wrapper.dark .s-btn-cancel {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+/* Group assign button inside modal */
+.db-wrapper.dark .s-group-open-btn {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+}
+
+/* Group assign modal */
+.db-wrapper.dark .group-assign-modal {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+.db-wrapper.dark .group-assign-list {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+.db-wrapper.dark .s-list-item-hover {
+  border-color: var(--border) !important;
+}
+.db-wrapper.dark .s-list-item-hover:hover {
+  background: var(--surface-strong) !important;
+}
+
+/* Upload zone */
+.db-wrapper.dark .s-upload-zone {
+  background: var(--surface-strong) !important;
+  border-color: var(--border) !important;
+}
+
+/* Gift page card */
+.db-wrapper.dark .gift-page-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+.db-wrapper.dark .gift-page-header h1 {
+  color: var(--text) !important;
+}
+.db-wrapper.dark .gift-page-header p,
+.db-wrapper.dark .gift-page-title,
+.db-wrapper.dark .gift-page-note,
+.db-wrapper.dark .gift-refresh-note {
+  color: var(--sub) !important;
+}
+.db-wrapper.dark .gift-page-status {
+  background: var(--surface-strong) !important;
+}
+
+/* Students card */
+.db-wrapper.dark .students-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+/* Actions table */
+.db-wrapper.dark .action-icon-btn:hover {
+  background: var(--surface-strong) !important;
+}
+.db-wrapper.dark .action-icon-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+.db-wrapper.dark .action-icon-btn.edit:hover {
+  background: rgba(124, 58, 237, 0.15) !important;
+}
+
+/* Lang select */
+.db-wrapper.dark .db-lang {
+  color: var(--text) !important;
+}
+
+/* Module SCSS files var override - these pages use CSS Modules with local scope */
+/* Lesson detail, homework results, group detail white backgrounds are fixed via var(--surface) in SCSS */

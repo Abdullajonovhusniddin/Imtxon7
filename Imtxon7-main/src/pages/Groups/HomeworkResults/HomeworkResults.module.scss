@@ -58,7 +58,7 @@
 }
 
 .infoCard {
-  background-color: white;
+  background-color: var(--surface);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -150,7 +150,7 @@
 }
 
 .tableSection {
-  background-color: white;
+  background-color: var(--surface);
   border-radius: 12px;
   padding: 0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);

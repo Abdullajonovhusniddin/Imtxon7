@@ -38,7 +38,7 @@
 }
 
 .backBtn {
-  background: white;
+  background: var(--surface);
   border-color: var(--border);
   border-radius: 8px;
   width: 32px;
@@ -60,7 +60,7 @@
 
 /* Date Navigator */
 .dateNavigatorContainer {
-  background-color: white;
+  background-color: var(--surface);
   padding: 20px 24px;
   border-radius: 12px;
   margin-bottom: 24px;
@@ -137,7 +137,7 @@
   }
 
   &.future {
-    background-color: white;
+    background-color: var(--surface);
     color: #475569;
     border-color: var(--border);
   }
@@ -182,7 +182,7 @@
 
 /* Sections */
 .section {
-  background-color: white;
+  background-color: var(--surface);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;

@@ -1,4 +1,6 @@
 {
+  "buildCommand": "cd Imtxon7-main && npm install && npm run build",
+  "outputDirectory": "Imtxon7-main/dist",
   "rewrites": [
     {
       "source": "/(.*)",
