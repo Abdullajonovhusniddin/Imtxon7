@@ -206,33 +206,31 @@ function StudentsPage({ language = 'uz' }) {
 
     setSaving(true)
     try {
+      let cleanPhone = formData.phone.replace(/[^\d+]/g, "").trim();
+      if (!cleanPhone.startsWith("+")) {
+          cleanPhone = "+" + cleanPhone;
+      }
+
       const fd = new FormData()
       fd.append('full_name', formData.name)
       if (formData.password) fd.append('password', formData.password)
       if (formData.birthDate) fd.append('birth_date', formData.birthDate)
       if (formData.address) fd.append('address', formData.address)
       if (formData.email) fd.append('email', formData.email)
-      if (formData.phone) fd.append('phone', formData.phone)
+      fd.append('phone', cleanPhone)
       if (photoFile) fd.append('photo', photoFile)
+
+      if (selectedGroups.length > 0) {
+        selectedGroups.forEach(groupId => {
+            fd.append("groups", Number(groupId));
+        });
+      }
 
       const response = editingStudent
         ? await patchJson(`/students/${editingStudent.id}`, fd)
         : await postJson('/students', fd)
       const newStudent = response?.data || response
       const newStudentId = newStudent?.id || newStudent?.student_id || newStudent?.user_id
-
-      if (selectedGroups.length > 0) {
-        const targetId = newStudentId || editingStudent?.id
-        if (!targetId) {
-          throw new Error("Guruhga biriktirish uchun talaba ID topilmadi.")
-        }
-        await Promise.all(selectedGroups.map(groupId =>
-          postJson('/student-group', {
-            student_id: Number(targetId) || targetId,
-            group_id: Number(groupId) || groupId
-          })
-        ))
-      }
 
       const mappedStudent = mapStudent({
         ...editingStudent,
@@ -267,7 +265,7 @@ function StudentsPage({ language = 'uz' }) {
     try {
       const response = nextTab === 'archive'
         ? await getJson('/students/archive')
-        : await getJson('/students', { params: { page: nextPage, limit: pageLimit } })
+        : await getJson('/students', { params: { page: nextPage, limit: 4 } })
 
       const mappedData = getApiItems(response).map(mapStudent)
       setStudents(mappedData)
